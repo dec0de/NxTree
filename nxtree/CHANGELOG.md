@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Use explicit white foreground for the Nextcloud navigation icon.
+
 ## 0.6.0
 
 - Add database-backed tree structure editing.

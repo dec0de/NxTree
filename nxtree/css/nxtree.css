@@ -172,6 +172,32 @@
     min-height: 34px;
 }
 
+.nxtree-tree-row.dragging {
+    opacity: 0.45;
+}
+
+.nxtree-tree-row.drop-inside button {
+    background: var(--color-primary-light);
+}
+
+.nxtree-tree-row.drop-before::before,
+.nxtree-tree-row.drop-after::before {
+    position: absolute;
+    right: 4px;
+    left: 4px;
+    z-index: 2;
+    border-top: 2px solid var(--color-primary-element, #0082c9);
+    content: "";
+}
+
+.nxtree-tree-row.drop-before::before {
+    top: 0;
+}
+
+.nxtree-tree-row.drop-after::before {
+    bottom: 0;
+}
+
 .nxtree-tree-guides {
     display: flex;
     flex: 0 0 auto;

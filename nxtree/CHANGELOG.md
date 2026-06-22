@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0
+
+- Add database-backed tree structure editing.
+- Add child node creation under the selected branch.
+- Add soft-delete for selected nodes and descendants.
+- Add direct-child branch sorting A-Z and Z-A.
+- Add drag/drop move before, inside, and after target nodes.
+- Store structure changes as revisioned operations.
+
 ## 0.5.0
 
 - Add editable node titles and Markdown content.

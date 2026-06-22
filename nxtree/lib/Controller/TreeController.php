@@ -122,4 +122,84 @@ final class TreeController extends Controller {
 
         return new JSONResponse(['tree' => $tree]);
     }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
+    public function addNode(int $parentId, int $baseRevision = 0): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $tree = $this->treeService->addNode($this->userId, $parentId, $baseRevision);
+        } catch (UnexpectedValueException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (InvalidArgumentException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
+        return new JSONResponse(['tree' => $tree], Http::STATUS_CREATED);
+    }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
+    public function deleteNode(int $nodeId, int $baseRevision = 0): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $tree = $this->treeService->deleteNode($this->userId, $nodeId, $baseRevision);
+        } catch (UnexpectedValueException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (InvalidArgumentException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
+        return new JSONResponse(['tree' => $tree]);
+    }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
+    public function sortChildren(int $nodeId, string $direction = 'asc', int $baseRevision = 0): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $tree = $this->treeService->sortChildren($this->userId, $nodeId, $direction, $baseRevision);
+        } catch (UnexpectedValueException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (InvalidArgumentException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
+        return new JSONResponse(['tree' => $tree]);
+    }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
+    public function moveNode(int $nodeId, int $targetId = 0, string $mode = 'inside', int $baseRevision = 0): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $tree = $this->treeService->moveNode($this->userId, $nodeId, $targetId, $mode, $baseRevision);
+        } catch (UnexpectedValueException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (InvalidArgumentException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
+        return new JSONResponse(['tree' => $tree]);
+    }
 }

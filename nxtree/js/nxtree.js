@@ -40,6 +40,10 @@
         const saveStateEl = document.getElementById('nxtree-save-state');
         const revisionEl = document.getElementById('nxtree-revision');
         const statusEl = document.getElementById('nxtree-status');
+        const addNodeButton = document.getElementById('nxtree-add-node');
+        const deleteNodeButton = document.getElementById('nxtree-delete-node');
+        const sortAscButton = document.getElementById('nxtree-sort-asc');
+        const sortDescButton = document.getElementById('nxtree-sort-desc');
         const expandButton = document.getElementById('nxtree-expand-branch');
         const collapseButton = document.getElementById('nxtree-collapse-branch');
         const searchToggle = document.getElementById('nxtree-search-toggle');
@@ -53,6 +57,7 @@
         let currentTree = null;
         let selectedNodeId = null;
         let editorMode = 'preview';
+        let draggedNodeId = null;
         let saveTimer = null;
         let isSaving = false;
         let saveQueued = false;
@@ -164,6 +169,10 @@
             return selectedNodeId === null ? null : findNode(selectedNodeId);
         }
 
+        function nodeContains(node, id) {
+            return (node.children || []).some(child => String(child.id) === String(id) || nodeContains(child, id));
+        }
+
         function collapseSubtree(node) {
             collapsedIds.add(String(node.id));
             (node.children || []).forEach(child => collapseSubtree(child));
@@ -216,6 +225,50 @@
             function add(node, ancestorHasNext, isLast, isRoot) {
                 const row = document.createElement('div');
                 row.className = 'nxtree-tree-row';
+                row.draggable = !isRoot;
+                row.dataset.nodeId = String(node.id);
+                row.addEventListener('dragstart', event => {
+                    if (isRoot) {
+                        event.preventDefault();
+                        return;
+                    }
+                    draggedNodeId = node.id;
+                    row.classList.add('dragging');
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', String(node.id));
+                });
+                row.addEventListener('dragend', () => {
+                    draggedNodeId = null;
+                    clearDropClasses();
+                    row.classList.remove('dragging');
+                });
+                row.addEventListener('dragover', event => {
+                    if (!draggedNodeId || String(draggedNodeId) === String(node.id)) {
+                        return;
+                    }
+                    const dragged = findNode(draggedNodeId);
+                    if (dragged && nodeContains(dragged, node.id)) {
+                        return;
+                    }
+                    event.preventDefault();
+                    const mode = getDropMode(event, row);
+                    clearDropClasses();
+                    row.classList.add(`drop-${mode}`);
+                });
+                row.addEventListener('dragleave', event => {
+                    if (!row.contains(event.relatedTarget)) {
+                        row.classList.remove('drop-before', 'drop-inside', 'drop-after');
+                    }
+                });
+                row.addEventListener('drop', event => {
+                    if (!draggedNodeId) {
+                        return;
+                    }
+                    event.preventDefault();
+                    const mode = getDropMode(event, row);
+                    clearDropClasses();
+                    moveNode(draggedNodeId, node.id, mode);
+                });
                 const guides = document.createElement('span');
                 guides.className = 'nxtree-tree-guides';
                 ancestorHasNext.forEach(hasNext => {
@@ -271,6 +324,24 @@
             }
 
             roots.forEach((node, index) => add(node, [], index === roots.length - 1, roots.length === 1));
+        }
+
+        function clearDropClasses() {
+            treeEl.querySelectorAll('.drop-before, .drop-inside, .drop-after').forEach(row => {
+                row.classList.remove('drop-before', 'drop-inside', 'drop-after');
+            });
+        }
+
+        function getDropMode(event, row) {
+            const rect = row.getBoundingClientRect();
+            const y = event.clientY - rect.top;
+            if (y < rect.height * 0.28) {
+                return 'before';
+            }
+            if (y > rect.height * 0.72) {
+                return 'after';
+            }
+            return 'inside';
         }
 
         function renderSelectedNode() {
@@ -395,6 +466,111 @@
                         markDirty();
                     }
                 });
+        }
+
+        function applyTreeResult(data, preferredSelection) {
+            currentTree = data.tree;
+            if (preferredSelection && findNode(preferredSelection)) {
+                selectedNodeId = preferredSelection;
+            } else if (!findNode(selectedNodeId)) {
+                selectedNodeId = currentTree.rootNodeId;
+            }
+            revisionEl.textContent = `Revision ${currentTree.revision}`;
+            refreshTreeSummary(currentTree);
+            renderTree();
+            renderSelectedNode();
+            runSearch();
+        }
+
+        function postOperation(path, body) {
+            if (!currentTree) {
+                return Promise.reject(new Error('No tree loaded'));
+            }
+            body.set('baseRevision', String(currentTree.revision));
+            setStatus('Updating tree...');
+            return fetch(endpoint(path), {
+                method: 'POST',
+                headers: requestHeaders(),
+                body,
+            }).then(response => response.json().then(data => {
+                if (!response.ok) {
+                    throw new Error(data.error || 'Could not update tree');
+                }
+                return data;
+            }));
+        }
+
+        function addNode() {
+            const parent = selectedNode();
+            if (!parent) {
+                setStatus('Select a parent node first');
+                return;
+            }
+            postOperation('/nodes/' + encodeURIComponent(parent.id) + '/children', new URLSearchParams())
+                .then(data => {
+                    const newNode = data.tree.nodes.reduce((latest, node) => latest === null || node.id > latest.id ? node : latest, null);
+                    collapsedIds.delete(String(parent.id));
+                    applyTreeResult(data, newNode ? newNode.id : parent.id);
+                    setEditorMode('edit');
+                    titleEl.focus();
+                    titleEl.select();
+                    setStatus('Added node');
+                })
+                .catch(error => setStatus(error.message));
+        }
+
+        function deleteNode() {
+            const node = selectedNode();
+            if (!node) {
+                setStatus('Select a node to delete');
+                return;
+            }
+            if (String(node.id) === String(currentTree.rootNodeId)) {
+                setStatus('The root node cannot be deleted');
+                return;
+            }
+            if ((node.children || []).length > 0 && !window.confirm('Delete this node and all child nodes?')) {
+                return;
+            }
+            const nextSelection = node.parentId || currentTree.rootNodeId;
+            postOperation('/nodes/' + encodeURIComponent(node.id) + '/delete', new URLSearchParams())
+                .then(data => {
+                    collapsedIds.delete(String(node.id));
+                    applyTreeResult(data, nextSelection);
+                    setStatus('Deleted node');
+                })
+                .catch(error => setStatus(error.message));
+        }
+
+        function sortChildren(direction) {
+            const node = selectedNode();
+            if (!node) {
+                setStatus('Select a branch to sort');
+                return;
+            }
+            const body = new URLSearchParams();
+            body.set('direction', direction);
+            postOperation('/nodes/' + encodeURIComponent(node.id) + '/sort', body)
+                .then(data => {
+                    applyTreeResult(data, node.id);
+                    setStatus(direction === 'desc' ? 'Sorted branch Z-A' : 'Sorted branch A-Z');
+                })
+                .catch(error => setStatus(error.message));
+        }
+
+        function moveNode(nodeId, targetId, mode) {
+            const body = new URLSearchParams();
+            body.set('targetId', String(targetId));
+            body.set('mode', mode);
+            postOperation('/nodes/' + encodeURIComponent(nodeId) + '/move', body)
+                .then(data => {
+                    if (mode === 'inside') {
+                        collapsedIds.delete(String(targetId));
+                    }
+                    applyTreeResult(data, nodeId);
+                    setStatus('Moved node');
+                })
+                .catch(error => setStatus(error.message));
         }
 
         function expandSelectedBranch() {
@@ -567,6 +743,10 @@
         editModeButton.addEventListener('click', () => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit'));
         titleEl.addEventListener('input', scheduleSelectedNodeSave);
         contentEl.addEventListener('input', scheduleSelectedNodeSave);
+        addNodeButton.addEventListener('click', addNode);
+        deleteNodeButton.addEventListener('click', deleteNode);
+        sortAscButton.addEventListener('click', () => sortChildren('asc'));
+        sortDescButton.addEventListener('click', () => sortChildren('desc'));
         expandButton.addEventListener('click', expandSelectedBranch);
         collapseButton.addEventListener('click', collapseSelectedBranch);
         searchToggle.addEventListener('click', () => {

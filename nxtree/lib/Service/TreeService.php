@@ -199,6 +199,166 @@ final class TreeService {
         return $updated;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function addNode(string $userId, int $parentId, int $baseRevision): array {
+        $now = time();
+        $this->db->beginTransaction();
+
+        try {
+            [$parent, $tree] = $this->nodeContext($userId, $parentId, $baseRevision);
+            $treeId = (int)$tree['id'];
+            $newRevision = (int)$tree['revision'] + 1;
+            $sortOrder = count($this->childRows($treeId, $parentId));
+            $nodeId = $this->insertChildNode($treeId, $parentId, $sortOrder, 'New node', $now);
+            $this->updateTreeRevision($treeId, $newRevision, $now);
+            $this->insertOperation($treeId, $userId, $newRevision, 'addNode', [
+                'nodeId' => $nodeId,
+                'parentId' => (int)$parent['id'],
+            ], $now);
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+
+        return $this->loadedTree($userId, $treeId);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function deleteNode(string $userId, int $nodeId, int $baseRevision): array {
+        $now = time();
+        $this->db->beginTransaction();
+
+        try {
+            [$node, $tree] = $this->nodeContext($userId, $nodeId, $baseRevision);
+            if ((int)$tree['root_node_id'] === $nodeId) {
+                throw new InvalidArgumentException('The root node cannot be deleted');
+            }
+
+            $treeId = (int)$tree['id'];
+            $newRevision = (int)$tree['revision'] + 1;
+            $deletedIds = $this->descendantIds($treeId, $nodeId);
+            array_unshift($deletedIds, $nodeId);
+            foreach ($deletedIds as $id) {
+                $this->softDeleteNode($id, $now);
+            }
+            $this->renumberChildren($treeId, $node['parent_id'] === null ? null : (int)$node['parent_id']);
+            $this->updateTreeRevision($treeId, $newRevision, $now);
+            $this->insertOperation($treeId, $userId, $newRevision, 'deleteNode', [
+                'nodeId' => $nodeId,
+                'deletedIds' => $deletedIds,
+            ], $now);
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+
+        return $this->loadedTree($userId, $treeId);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function sortChildren(string $userId, int $nodeId, string $direction, int $baseRevision): array {
+        $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+        $now = time();
+        $this->db->beginTransaction();
+
+        try {
+            [$node, $tree] = $this->nodeContext($userId, $nodeId, $baseRevision);
+            $treeId = (int)$tree['id'];
+            $children = $this->childRows($treeId, (int)$node['id']);
+            usort($children, static function (array $left, array $right) use ($direction): int {
+                $result = strcasecmp((string)$left['title'], (string)$right['title']);
+                return $direction === 'desc' ? -$result : $result;
+            });
+            $this->writeSiblingOrder($children);
+            $newRevision = (int)$tree['revision'] + 1;
+            $this->updateTreeRevision($treeId, $newRevision, $now);
+            $this->insertOperation($treeId, $userId, $newRevision, $direction === 'desc' ? 'sortChildrenDesc' : 'sortChildrenAsc', [
+                'nodeId' => $nodeId,
+            ], $now);
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+
+        return $this->loadedTree($userId, $treeId);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function moveNode(string $userId, int $nodeId, int $targetId, string $mode, int $baseRevision): array {
+        $mode = in_array($mode, ['before', 'inside', 'after'], true) ? $mode : 'inside';
+        $now = time();
+        $this->db->beginTransaction();
+
+        try {
+            [$node, $tree] = $this->nodeContext($userId, $nodeId, $baseRevision);
+            [$target, $targetTree] = $this->nodeContext($userId, $targetId, $baseRevision);
+            $treeId = (int)$tree['id'];
+            if ($treeId !== (int)$targetTree['id']) {
+                throw new InvalidArgumentException('Target node is in another tree');
+            }
+            if ((int)$tree['root_node_id'] === $nodeId) {
+                throw new InvalidArgumentException('The root node cannot be moved');
+            }
+            if ($nodeId === $targetId || in_array($targetId, $this->descendantIds($treeId, $nodeId), true)) {
+                throw new InvalidArgumentException('Cannot move a node into itself');
+            }
+
+            $oldParentId = $node['parent_id'] === null ? null : (int)$node['parent_id'];
+            if ($mode === 'inside') {
+                $newParentId = $targetId;
+                $newIndex = count($this->childRows($treeId, $newParentId));
+            } else {
+                $newParentId = $target['parent_id'] === null ? null : (int)$target['parent_id'];
+                $siblings = $this->childRows($treeId, $newParentId);
+                $targetIndex = 0;
+                foreach ($siblings as $index => $sibling) {
+                    if ((int)$sibling['id'] === $targetId) {
+                        $targetIndex = $index;
+                        break;
+                    }
+                }
+                $newIndex = $mode === 'after' ? $targetIndex + 1 : $targetIndex;
+            }
+
+            $this->moveNodeRow($nodeId, $newParentId, 0);
+            $this->renumberChildren($treeId, $oldParentId);
+            $siblings = array_values(array_filter($this->childRows($treeId, $newParentId), static fn (array $sibling): bool => (int)$sibling['id'] !== $nodeId));
+            $newIndex = max(0, min($newIndex, count($siblings)));
+            array_splice($siblings, $newIndex, 0, [[
+                'id' => $nodeId,
+            ]]);
+            $this->writeSiblingOrder($siblings);
+            $newRevision = (int)$tree['revision'] + 1;
+            $this->updateTreeRevision($treeId, $newRevision, $now);
+            $this->insertOperation($treeId, $userId, $newRevision, 'moveNode', [
+                'nodeId' => $nodeId,
+                'targetId' => $targetId,
+                'mode' => $mode,
+            ], $now);
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+
+        return $this->loadedTree($userId, $treeId);
+    }
+
     private function insertTree(string $userId, string $title, int $now): int {
         $qb = $this->db->getQueryBuilder();
         $qb->insert('nxtree_trees')
@@ -221,6 +381,24 @@ final class TreeService {
                 'tree_id' => $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT),
                 'parent_id' => $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL),
                 'sort_order' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
+                'title' => $qb->createNamedParameter($title),
+                'content_markdown' => $qb->createNamedParameter(''),
+                'version' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+                'created_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
+                'updated_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
+            ])
+            ->executeStatement();
+
+        return (int)$this->db->lastInsertId('nxtree_nodes');
+    }
+
+    private function insertChildNode(int $treeId, int $parentId, int $sortOrder, string $title, int $now): int {
+        $qb = $this->db->getQueryBuilder();
+        $qb->insert('nxtree_nodes')
+            ->values([
+                'tree_id' => $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT),
+                'parent_id' => $qb->createNamedParameter($parentId, IQueryBuilder::PARAM_INT),
+                'sort_order' => $qb->createNamedParameter($sortOrder, IQueryBuilder::PARAM_INT),
                 'title' => $qb->createNamedParameter($title),
                 'content_markdown' => $qb->createNamedParameter(''),
                 'version' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
@@ -302,6 +480,32 @@ final class TreeService {
             ->executeStatement();
     }
 
+    private function softDeleteNode(int $nodeId, int $now): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_nodes')
+            ->set('deleted_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    private function moveNodeRow(int $nodeId, ?int $parentId, int $sortOrder): void {
+        $qb = $this->db->getQueryBuilder();
+        $parentParameter = $parentId === null ? $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL) : $qb->createNamedParameter($parentId, IQueryBuilder::PARAM_INT);
+        $qb->update('nxtree_nodes')
+            ->set('parent_id', $parentParameter)
+            ->set('sort_order', $qb->createNamedParameter($sortOrder, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    private function updateSortOrder(int $nodeId, int $sortOrder): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_nodes')
+            ->set('sort_order', $qb->createNamedParameter($sortOrder, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
     /**
      * @param array<string, int|string|null> $payload
      */
@@ -352,11 +556,99 @@ final class TreeService {
     }
 
     /**
+     * @return array{array<string, mixed>, array<string, mixed>}
+     */
+    private function nodeContext(string $userId, int $nodeId, int $baseRevision): array {
+        $node = $this->nodeRow($nodeId);
+        if ($node === null) {
+            throw new InvalidArgumentException('Node not found');
+        }
+
+        $tree = $this->treeRow((int)$node['tree_id']);
+        if ($tree === null || (string)$tree['owner_user_id'] !== $userId) {
+            throw new InvalidArgumentException('Node not found');
+        }
+
+        if ($baseRevision !== (int)$tree['revision']) {
+            throw new UnexpectedValueException('Tree changed elsewhere. Reload before changing this tree.');
+        }
+
+        return [$node, $tree];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function loadedTree(string $userId, int $treeId): array {
+        $tree = $this->getTree($userId, $treeId);
+        if ($tree === null) {
+            throw new InvalidArgumentException('Tree could not be loaded');
+        }
+
+        return $tree;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function childRows(int $treeId, ?int $parentId): array {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('id', 'parent_id', 'sort_order', 'title')
+            ->from('nxtree_nodes')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->isNull('deleted_at'))
+            ->orderBy('sort_order', 'ASC')
+            ->addOrderBy('id', 'ASC');
+
+        if ($parentId === null) {
+            $qb->andWhere($qb->expr()->isNull('parent_id'));
+        } else {
+            $qb->andWhere($qb->expr()->eq('parent_id', $qb->createNamedParameter($parentId, IQueryBuilder::PARAM_INT)));
+        }
+
+        $result = $qb->executeQuery();
+        $children = [];
+        while (($row = $result->fetch()) !== false) {
+            $children[] = $row;
+        }
+        $result->closeCursor();
+
+        return $children;
+    }
+
+    private function renumberChildren(int $treeId, ?int $parentId): void {
+        $this->writeSiblingOrder($this->childRows($treeId, $parentId));
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $siblings
+     */
+    private function writeSiblingOrder(array $siblings): void {
+        foreach ($siblings as $index => $sibling) {
+            $this->updateSortOrder((int)$sibling['id'], $index);
+        }
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function descendantIds(int $treeId, int $nodeId): array {
+        $ids = [];
+        foreach ($this->childRows($treeId, $nodeId) as $child) {
+            $childId = (int)$child['id'];
+            $ids[] = $childId;
+            array_push($ids, ...$this->descendantIds($treeId, $childId));
+        }
+
+        return $ids;
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private function nodeRow(int $nodeId): ?array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'tree_id', 'version')
+        $result = $qb->select('id', 'tree_id', 'parent_id', 'sort_order', 'title', 'version')
             ->from('nxtree_nodes')
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->isNull('deleted_at'))

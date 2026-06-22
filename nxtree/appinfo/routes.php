@@ -10,5 +10,9 @@ return [
         ['name' => 'tree#import', 'url' => '/import', 'verb' => 'POST'],
         ['name' => 'tree#show', 'url' => '/trees/{treeId}', 'verb' => 'GET'],
         ['name' => 'tree#updateNode', 'url' => '/nodes/{nodeId}', 'verb' => 'PUT'],
+        ['name' => 'tree#addNode', 'url' => '/nodes/{parentId}/children', 'verb' => 'POST'],
+        ['name' => 'tree#deleteNode', 'url' => '/nodes/{nodeId}/delete', 'verb' => 'POST'],
+        ['name' => 'tree#sortChildren', 'url' => '/nodes/{nodeId}/sort', 'verb' => 'POST'],
+        ['name' => 'tree#moveNode', 'url' => '/nodes/{nodeId}/move', 'verb' => 'POST'],
     ],
 ];

@@ -18,10 +18,10 @@
             <nav id="nxtree-tree-list" class="nxtree-tree-list" aria-label="NxTree trees"></nav>
         </div>
         <div class="nxtree-tree-actions" aria-label="Tree actions">
-            <button type="button" id="nxtree-add-node" title="Node editing is coming next" disabled>+ Node</button>
-            <button type="button" id="nxtree-delete-node" disabled>Delete</button>
-            <button type="button" id="nxtree-sort-asc" disabled>Sort A-Z</button>
-            <button type="button" id="nxtree-sort-desc" disabled>Sort Z-A</button>
+            <button type="button" id="nxtree-add-node" title="New child node">+ Node</button>
+            <button type="button" id="nxtree-delete-node">Delete</button>
+            <button type="button" id="nxtree-sort-asc">Sort A-Z</button>
+            <button type="button" id="nxtree-sort-desc">Sort Z-A</button>
             <button type="button" id="nxtree-expand-branch" title="Expand selected branch">Expand</button>
             <button type="button" id="nxtree-collapse-branch" title="Collapse selected branch">Collapse</button>
         </div>

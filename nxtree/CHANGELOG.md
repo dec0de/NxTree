@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.4
+
+- Rename the tree switcher to Recent Trees.
+- Show each tree's source path, export folder, or database revision under its title.
+- Add tooltips with source path, export folder, revision, and internal tree id to disambiguate same-name imports.
+
 ## 0.9.3
 
 - Start Files import browsing at the Nextcloud Files root unless the current tree has a known source folder.

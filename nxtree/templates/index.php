@@ -16,7 +16,7 @@
             <button type="button" id="nxtree-export-mtre" title="Download the selected branch and its children">Download .mtre</button>
             <small>Files export defaults to imported folder or /NxTree</small>
             <div class="nxtree-tree-list-panel">
-                <strong>Trees</strong>
+                <strong>Recent Trees</strong>
                 <p id="nxtree-tree-empty" class="nxtree-empty">No trees yet.</p>
                 <nav id="nxtree-tree-list" class="nxtree-tree-list" aria-label="NxTree trees"></nav>
             </div>

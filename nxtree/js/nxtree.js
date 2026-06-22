@@ -374,7 +374,17 @@
                 button.type = 'button';
                 button.className = 'nxtree-tree-item';
                 button.classList.toggle('active', tree.id === selectedTreeId);
-                button.textContent = tree.title || 'Untitled tree';
+                button.title = treeTooltip(tree);
+
+                const title = document.createElement('span');
+                title.className = 'nxtree-tree-item-title';
+                title.textContent = tree.title || 'Untitled tree';
+                button.appendChild(title);
+
+                const meta = document.createElement('span');
+                meta.className = 'nxtree-tree-item-meta';
+                meta.textContent = treeMeta(tree);
+                button.appendChild(meta);
                 button.addEventListener('click', () => {
                     selectedTreeId = tree.id;
                     renderTreeList();
@@ -384,12 +394,37 @@
             });
         }
 
+        function treeMeta(tree) {
+            if (tree.sourceFilePath) {
+                return tree.sourceFilePath;
+            }
+            if (tree.lastExportFolderPath) {
+                return `Exports to ${tree.lastExportFolderPath}`;
+            }
+            return `Revision ${tree.revision || 0} · NxTree database`;
+        }
+
+        function treeTooltip(tree) {
+            const lines = [tree.title || 'Untitled tree'];
+            if (tree.sourceFilePath) {
+                lines.push(`Source: ${tree.sourceFilePath}`);
+            }
+            if (tree.lastExportFolderPath) {
+                lines.push(`Export folder: ${tree.lastExportFolderPath}`);
+            }
+            lines.push(`Revision: ${tree.revision || 0}`);
+            lines.push(`Tree id: ${tree.id}`);
+            return lines.join('\n');
+        }
+
         function refreshTreeSummary(tree) {
             const existing = trees.find(item => item.id === tree.id);
             if (existing) {
                 existing.title = tree.title;
                 existing.revision = tree.revision;
                 existing.updatedAt = tree.updatedAt;
+                existing.sourceFilePath = tree.sourceFilePath;
+                existing.lastExportFolderPath = tree.lastExportFolderPath;
             }
             renderTreeList();
         }

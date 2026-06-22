@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.6
+
+- Fix Recent Trees rows so the title and source metadata render as two readable lines instead of clipping together.
+
 ## 0.9.5
 
 - Wire the Undo toolbar button for restoring deleted nodes and recent local structure changes.

@@ -27,7 +27,7 @@ final class TreeService {
      */
     public function listTrees(string $userId): array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path', 'library_path')
+        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path', 'library_path', 'library_name')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
@@ -192,7 +192,7 @@ final class TreeService {
      */
     public function getTree(string $userId, int $treeId): ?array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path', 'library_path')
+        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path', 'library_path', 'library_name')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
@@ -214,8 +214,9 @@ final class TreeService {
     /**
      * @return array<string, mixed>
      */
-    public function organizeTree(string $userId, int $treeId, string $libraryPath, int $baseRevision): array {
+    public function saveTreeToLibrary(string $userId, int $treeId, string $libraryPath, string $libraryName, int $baseRevision): array {
         $libraryPath = $this->normalisePath($libraryPath);
+        $libraryName = $this->normaliseLibraryName($libraryName);
         $now = time();
         $this->db->beginTransaction();
 
@@ -225,19 +226,18 @@ final class TreeService {
                 throw new InvalidArgumentException('Tree not found');
             }
             if ($baseRevision !== (int)$tree['revision']) {
-                throw new UnexpectedValueException('Tree changed elsewhere. Reload before organizing.');
+                throw new UnexpectedValueException('Tree changed elsewhere. Reload before saving.');
             }
-            try {
-                $this->getUserFolderAtPath($userId, $libraryPath);
-            } catch (NotFoundException) {
-                throw new InvalidArgumentException('Library folder does not exist');
+            if ($libraryName === '') {
+                $libraryName = $this->normaliseLibraryName((string)($tree['library_name'] ?? '') ?: $this->treeTitle($treeId));
             }
 
             $newRevision = (int)$tree['revision'] + 1;
-            $this->updateTreeLibraryPath($treeId, $libraryPath);
+            $this->updateTreeLibraryFile($treeId, $libraryPath, $libraryName);
             $this->updateTreeRevision($treeId, $newRevision, $now);
-            $this->insertOperation($treeId, $userId, $newRevision, 'organizeTree', [
+            $this->insertOperation($treeId, $userId, $newRevision, 'saveToLibrary', [
                 'libraryPath' => $libraryPath,
+                'libraryName' => $libraryName,
             ], $now);
 
             $this->db->commit();
@@ -760,10 +760,11 @@ final class TreeService {
         $qb->executeStatement();
     }
 
-    private function updateTreeLibraryPath(int $treeId, string $libraryPath): void {
+    private function updateTreeLibraryFile(int $treeId, string $libraryPath, string $libraryName): void {
         $qb = $this->db->getQueryBuilder();
         $qb->update('nxtree_trees')
             ->set('library_path', $qb->createNamedParameter($libraryPath))
+            ->set('library_name', $qb->createNamedParameter($libraryName))
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->executeStatement();
     }
@@ -1217,7 +1218,7 @@ final class TreeService {
      */
     private function treeRow(int $treeId): ?array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'owner_user_id', 'root_node_id', 'revision', 'source_file_path', 'last_export_folder_path', 'library_path')
+        $result = $qb->select('id', 'owner_user_id', 'root_node_id', 'revision', 'source_file_path', 'last_export_folder_path', 'library_path', 'library_name')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
@@ -1244,7 +1245,31 @@ final class TreeService {
             'sourceFilePath' => $row['source_file_path'] === null ? null : (string)$row['source_file_path'],
             'lastExportFolderPath' => $row['last_export_folder_path'] === null ? null : (string)$row['last_export_folder_path'],
             'libraryPath' => $row['library_path'] === null ? null : (string)$row['library_path'],
+            'libraryName' => $row['library_name'] === null ? null : (string)$row['library_name'],
         ];
+    }
+
+    private function treeTitle(int $treeId): string {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('title')
+            ->from('nxtree_trees')
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        return $row === false ? 'Untitled tree' : (string)$row['title'];
+    }
+
+    private function normaliseLibraryName(string $name): string {
+        $name = trim(preg_replace('/[\\\/]+/', '-', $name) ?? '');
+        $name = preg_replace('/\.(nxtree|mtre)$/i', '', $name) ?? $name;
+        $name = trim($name);
+        if ($name === '') {
+            return '';
+        }
+
+        return mb_substr($name, 0, 255);
     }
 
     /**

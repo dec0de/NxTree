@@ -9,12 +9,16 @@
         </header>
         <div id="nxtree-file-menu" class="nxtree-file-actions" hidden>
             <button type="button" id="nxtree-new-tree">Create New Tree</button>
+            <button type="button" id="nxtree-load-tree" title="Load a database tree from the virtual NxTree Library">Load</button>
+            <button type="button" id="nxtree-save-tree" title="Save this database tree into the current virtual folder">Save</button>
             <button type="button" id="nxtree-import-files">Import from Files</button>
             <button type="button" id="nxtree-export-files" title="Save the selected branch to Nextcloud Files">Export to Files</button>
-            <button type="button" id="nxtree-organize-tree" title="Choose where this database tree appears in the Tree Library">Organize Tree</button>
-            <small>Organize stores a virtual folder for database trees; import/export still uses Nextcloud Files.</small>
+            <small>Load and Save use the virtual NxTree Library. Import/export uses real Nextcloud Files.</small>
             <div class="nxtree-tree-list-panel">
-                <strong>Tree Library</strong>
+                <div class="nxtree-library-header">
+                    <strong>Tree Library</strong>
+                    <span id="nxtree-library-path">/NxTree</span>
+                </div>
                 <p id="nxtree-tree-empty" class="nxtree-empty">No trees yet.</p>
                 <nav id="nxtree-tree-list" class="nxtree-tree-list" aria-label="NxTree trees"></nav>
             </div>

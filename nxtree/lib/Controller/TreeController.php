@@ -206,13 +206,13 @@ final class TreeController extends Controller {
      * @NoAdminRequired
      */
     #[NoAdminRequired]
-    public function organize(int $treeId, string $libraryPath = '', int $baseRevision = 0): JSONResponse {
+    public function saveToLibrary(int $treeId, string $libraryPath = '', string $libraryName = '', int $baseRevision = 0): JSONResponse {
         if ($this->userId === null) {
             return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
         }
 
         try {
-            $tree = $this->treeService->organizeTree($this->userId, $treeId, $libraryPath, $baseRevision);
+            $tree = $this->treeService->saveTreeToLibrary($this->userId, $treeId, $libraryPath, $libraryName, $baseRevision);
         } catch (UnexpectedValueException $e) {
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
         } catch (InvalidArgumentException $e) {

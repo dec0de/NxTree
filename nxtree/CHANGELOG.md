@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.8
+
+- Replace Organize Tree with Load and Save actions for a file-like virtual Tree Library.
+- Store virtual tree filenames alongside virtual folders so database trees can appear as NxTree files.
+
 ## 0.9.7
 
 - Replace browser download from the File menu with Organize Tree for choosing a virtual Tree Library folder from existing Nextcloud folders.

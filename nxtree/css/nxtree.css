@@ -113,6 +113,20 @@
     color: var(--color-text-maxcontrast);
 }
 
+.nxtree-library-header {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+#nxtree-library-path {
+    overflow: hidden;
+    color: var(--color-text-maxcontrast);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .nxtree-tree-list {
     display: flex;
     flex-direction: column;
@@ -162,6 +176,10 @@
 .nxtree-tree-item.active,
 .nxtree-tree-item:hover {
     background: var(--color-primary-light);
+}
+
+.nxtree-library-folder .nxtree-tree-item-title {
+    font-weight: 600;
 }
 
 .nxtree-tree-actions {

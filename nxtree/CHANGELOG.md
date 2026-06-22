@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.2
+
+- Replace NxTree's minimal Markdown preview renderer with MeeTree-compatible rendering.
+- Improve paragraph and blank-line handling in node previews.
+- Add support for MeeTree-style headings, lists, blockquotes, code blocks, task checkboxes, links, and inline formatting.
+
 ## 0.8.1
 
 - Export the currently selected branch and its descendants as `.mtre`.

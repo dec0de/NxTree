@@ -155,24 +155,134 @@
             });
         }
 
-        function markdownToHtml(markdown) {
-            const escaped = String(markdown || '')
+        function escapeHtml(value) {
+            return String(value)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
-                .replace(/^### (.*)$/gm, '<h3>$1</h3>')
-                .replace(/^## (.*)$/gm, '<h2>$1</h2>')
-                .replace(/^# (.*)$/gm, '<h1>$1</h1>')
-                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>');
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
-            return escaped.split(/\n{2,}/).map(paragraph => {
-                if (/^<h[1-3]>/.test(paragraph)) {
-                    return paragraph;
+        function safeUrl(value) {
+            try {
+                const url = new URL(value, window.location.href);
+                return ['http:', 'https:', 'mailto:'].includes(url.protocol) ? url.href : '';
+            } catch (error) {
+                return '';
+            }
+        }
+
+        function renderInlineMarkdown(value) {
+            const placeholders = [];
+            function hold(html) {
+                placeholders.push(html);
+                return `\u0000${placeholders.length - 1}\u0000`;
+            }
+
+            value = String(value).replace(/`([^`]+)`/g, (match, code) => hold(`<code>${escapeHtml(code)}</code>`));
+            value = value.replace(/\[([^\]]+)\]\(([^\s)]+)\)/g, (match, label, href) => {
+                const url = safeUrl(href);
+                return url ? hold(`<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(label)}</a>`) : label;
+            });
+            value = escapeHtml(value)
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+                .replace(/(^|\W)\*([^*]+)\*/g, '$1<em>$2</em>')
+                .replace(/(^|\W)_([^_]+)_/g, '$1<em>$2</em>')
+                .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+            return value.replace(/\u0000(\d+)\u0000/g, (match, index) => placeholders[Number(index)] || '');
+        }
+
+        function isMarkdownBlockStart(line) {
+            return /^\s*(```|#{1,6}\s+|([-*_])\s*\2\s*\2\s*$|>|[-*+]\s+|\d+\.\s+)/.test(line);
+        }
+
+        function renderMarkdown(markdown) {
+            const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n');
+            const html = [];
+            let i = 0;
+
+            while (i < lines.length) {
+                const line = lines[i];
+                if (line.trim() === '') {
+                    i++;
+                    continue;
                 }
-                return `<p>${paragraph.replace(/\n/g, '<br>')}</p>`;
-            }).join('');
+
+                if (/^\s*```/.test(line)) {
+                    const code = [];
+                    i++;
+                    while (i < lines.length && !/^\s*```/.test(lines[i])) {
+                        code.push(lines[i]);
+                        i++;
+                    }
+                    if (i < lines.length) {
+                        i++;
+                    }
+                    html.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`);
+                    continue;
+                }
+
+                const heading = line.match(/^\s*(#{1,6})\s+(.+)$/);
+                if (heading) {
+                    const level = heading[1].length;
+                    html.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+                    i++;
+                    continue;
+                }
+
+                if (/^\s*([-*_])\s*\1\s*\1\s*$/.test(line)) {
+                    html.push('<hr>');
+                    i++;
+                    continue;
+                }
+
+                if (/^\s*>/.test(line)) {
+                    const quote = [];
+                    while (i < lines.length && /^\s*>/.test(lines[i])) {
+                        quote.push(lines[i].replace(/^\s*>\s?/, ''));
+                        i++;
+                    }
+                    html.push(`<blockquote>${renderMarkdown(quote.join('\n'))}</blockquote>`);
+                    continue;
+                }
+
+                const listMatch = line.match(/^\s*(?:([-*+])|(\d+)\.)\s+(.+)$/);
+                if (listMatch) {
+                    const ordered = Boolean(listMatch[2]);
+                    const tag = ordered ? 'ol' : 'ul';
+                    const items = [];
+                    while (i < lines.length) {
+                        const item = lines[i].match(/^\s*(?:([-*+])|(\d+)\.)\s+(.+)$/);
+                        if (!item || Boolean(item[2]) !== ordered) {
+                            break;
+                        }
+                        let content = item[3];
+                        const task = content.match(/^\[( |x|X)\]\s+(.+)$/);
+                        if (task) {
+                            const checked = task[1].toLowerCase() === 'x' ? ' checked' : '';
+                            content = `<input type="checkbox" disabled${checked}>${renderInlineMarkdown(task[2])}`;
+                        } else {
+                            content = renderInlineMarkdown(content);
+                        }
+                        items.push(`<li>${content}</li>`);
+                        i++;
+                    }
+                    html.push(`<${tag}>${items.join('')}</${tag}>`);
+                    continue;
+                }
+
+                const paragraph = [line.trim()];
+                i++;
+                while (i < lines.length && lines[i].trim() !== '' && !isMarkdownBlockStart(lines[i])) {
+                    paragraph.push(lines[i].trim());
+                    i++;
+                }
+                html.push(`<p>${renderInlineMarkdown(paragraph.join('\n')).replace(/\n/g, '<br>')}</p>`);
+            }
+
+            return html.join('\n');
         }
 
         function buildNodeTree() {
@@ -419,7 +529,7 @@
             contentEl.hidden = editorMode !== 'edit';
             previewEl.hidden = editorMode === 'edit';
             const preview = node.contentMarkdown || 'This node is stored in the NxTree database. Editing will use revisioned operations in the next milestone.';
-            previewEl.innerHTML = markdownToHtml(preview);
+            previewEl.innerHTML = renderMarkdown(preview);
         }
 
         function selectNode(id) {
@@ -468,7 +578,7 @@
             }
             renderTree();
             if (editorMode === 'preview') {
-                previewEl.innerHTML = markdownToHtml(node.contentMarkdown || '');
+                previewEl.innerHTML = renderMarkdown(node.contentMarkdown || '');
             }
             markDirty();
         }

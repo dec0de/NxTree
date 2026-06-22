@@ -28,6 +28,7 @@
         }
 
         var newTreeButton = document.getElementById('nxtree-new-tree');
+        var importFile = document.getElementById('nxtree-import-file');
         var treeList = document.getElementById('nxtree-tree-list');
         var nodeList = document.getElementById('nxtree-node-list');
         var emptyState = document.getElementById('nxtree-tree-empty');
@@ -92,10 +93,21 @@
                 return;
             }
 
+            var byParent = {};
             currentTree.nodes.forEach(function (node) {
+                var key = node.parentId === null ? 'root' : String(node.parentId);
+                if (!byParent[key]) {
+                    byParent[key] = [];
+                }
+                byParent[key].push(node);
+            });
+
+            function addNode(node, depth) {
                 var button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'nxtree-node-item';
+                button.style.paddingLeft = String(28 + depth * 18) + 'px';
+                button.style.setProperty('--nxtree-line-left', String(12 + depth * 18) + 'px');
                 button.classList.toggle('active', node.id === selectedNodeId);
                 button.textContent = node.title || 'Untitled node';
                 button.addEventListener('click', function () {
@@ -104,6 +116,14 @@
                     renderSelectedNode();
                 });
                 nodeList.appendChild(button);
+
+                (byParent[String(node.id)] || []).forEach(function (child) {
+                    addNode(child, depth + 1);
+                });
+            }
+
+            (byParent.root || []).forEach(function (node) {
+                addNode(node, 0);
             });
         }
 
@@ -220,7 +240,56 @@
             });
         }
 
+        function importTree(file) {
+            if (!file) {
+                return;
+            }
+
+            var body = new FormData();
+            body.append('file', file);
+            newTreeButton.disabled = true;
+            importFile.disabled = true;
+            setStatus('Importing ' + file.name + '...');
+
+            fetch(endpoint('/import'), {
+                method: 'POST',
+                headers: requestHeaders(),
+                body: body
+            }).then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Could not import tree');
+                    }
+
+                    return data;
+                });
+            }).then(function (data) {
+                trees = trees.filter(function (tree) {
+                    return tree.id !== data.tree.id;
+                });
+                trees.unshift(data.tree);
+                selectedTreeId = data.tree.id;
+                currentTree = data.tree;
+                selectedNodeId = currentTree.rootNodeId;
+                currentTitle.textContent = currentTree.title || 'Imported tree';
+                revision.textContent = 'Revision ' + currentTree.revision;
+                renderTrees();
+                renderNodes();
+                setEditorMode('preview');
+                setStatus('Imported ' + data.tree.nodes.length + ' node(s) from ' + file.name + '.');
+            }).catch(function (error) {
+                setStatus(error.message);
+            }).finally(function () {
+                newTreeButton.disabled = false;
+                importFile.disabled = false;
+                importFile.value = '';
+            });
+        }
+
         newTreeButton.addEventListener('click', createTree);
+        importFile.addEventListener('change', function () {
+            importTree(importFile.files && importFile.files.length > 0 ? importFile.files[0] : null);
+        });
         editModeButton.addEventListener('click', function () {
             setEditorMode(editorMode === 'edit' ? 'preview' : 'edit');
         });

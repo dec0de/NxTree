@@ -14,11 +14,11 @@ use OCP\IRequest;
 
 final class TreeController extends Controller {
     public function __construct(
-        IRequest $request,
+        private IRequest $appRequest,
         private TreeService $treeService,
         private ?string $userId,
     ) {
-        parent::__construct('nxtree', $request);
+        parent::__construct('nxtree', $appRequest);
     }
 
     /**
@@ -44,6 +44,40 @@ final class TreeController extends Controller {
 
         try {
             $tree = $this->treeService->createTree($this->userId, $title);
+        } catch (InvalidArgumentException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
+        return new JSONResponse(['tree' => $tree], Http::STATUS_CREATED);
+    }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
+    public function import(): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $file = $this->appRequest->getUploadedFile('file');
+        if (!is_array($file) || !isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            return new JSONResponse(['error' => 'No import file uploaded'], Http::STATUS_BAD_REQUEST);
+        }
+
+        $fileName = isset($file['name']) ? (string)$file['name'] : 'Imported tree.mtre';
+        $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        if ($extension !== 'mtre') {
+            return new JSONResponse(['error' => 'Only .mtre files can be imported right now'], Http::STATUS_BAD_REQUEST);
+        }
+
+        $contents = file_get_contents($file['tmp_name']);
+        if ($contents === false) {
+            return new JSONResponse(['error' => 'Could not read import file'], Http::STATUS_BAD_REQUEST);
+        }
+
+        try {
+            $tree = $this->treeService->importMtre($this->userId, $contents, pathinfo($fileName, PATHINFO_FILENAME));
         } catch (InvalidArgumentException $e) {
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         }

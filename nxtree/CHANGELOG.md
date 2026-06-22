@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Add `.mtre` import from local uploads.
+- Convert imported MeeTree documents into database-backed NxTree trees and nodes.
+- Record imported trees as revisioned `importTree` operations.
+- Render imported node hierarchy in the NxTree tree pane.
+
 ## 0.2.0
 
 - Add first runnable database-backed NxTree UI.

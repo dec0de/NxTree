@@ -11,6 +11,8 @@
         </div>
 
         <button id="nxtree-new-tree" class="nxtree-primary" type="button">New tree</button>
+        <label class="nxtree-import-button" for="nxtree-import-file">Import .mtre</label>
+        <input id="nxtree-import-file" class="nxtree-file-input" type="file" accept=".mtre,application/json" />
 
         <div class="nxtree-tree-actions" aria-label="Tree actions">
             <button type="button" id="nxtree-add-node" title="New child node" disabled>+ Node</button>

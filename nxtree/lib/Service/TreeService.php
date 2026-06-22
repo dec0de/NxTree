@@ -6,11 +6,20 @@ namespace OCA\NxTree\Service;
 
 use InvalidArgumentException;
 use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\Files\File;
+use OCP\Files\Folder;
+use OCP\Files\IRootFolder;
+use OCP\Files\NotFoundException;
 use OCP\IDBConnection;
 use UnexpectedValueException;
 
 final class TreeService {
-    public function __construct(private IDBConnection $db) {
+    private const DEFAULT_EXPORT_FOLDER = '/NxTree';
+
+    public function __construct(
+        private IDBConnection $db,
+        private IRootFolder $rootFolder,
+    ) {
     }
 
     /**
@@ -18,7 +27,7 @@ final class TreeService {
      */
     public function listTrees(string $userId): array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at')
+        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
@@ -78,7 +87,7 @@ final class TreeService {
     /**
      * @return array<string, mixed>
      */
-    public function importMtre(string $userId, string $contents, string $fallbackTitle): array {
+    public function importMtre(string $userId, string $contents, string $fallbackTitle, ?string $sourceFilePath = null): array {
         $decoded = json_decode($contents, true);
         if (!is_array($decoded)) {
             throw new InvalidArgumentException('Import file is not valid MeeTree JSON');
@@ -90,12 +99,14 @@ final class TreeService {
         }
 
         $title = $this->nodeTitle($root, $fallbackTitle !== '' ? $fallbackTitle : 'Imported tree');
+        $sourceFilePath = $sourceFilePath === null ? null : $this->normalisePath($sourceFilePath);
+        $lastExportFolderPath = $sourceFilePath === null ? null : $this->parentPath($sourceFilePath);
         $now = time();
         $nodeCount = 0;
         $this->db->beginTransaction();
 
         try {
-            $treeId = $this->insertTree($userId, $title, $now);
+            $treeId = $this->insertTree($userId, $title, $now, $sourceFilePath, $lastExportFolderPath);
             $rootNodeId = $this->insertImportedNode($treeId, null, 0, $root, $now, $nodeCount);
             $this->activateTree($treeId, $rootNodeId, $now);
             $this->insertOperation($treeId, $userId, 1, 'importTree', [
@@ -120,11 +131,24 @@ final class TreeService {
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function importMtreFromFiles(string $userId, string $path): array {
+        $path = $this->normalisePath($path);
+        if (!str_ends_with(strtolower($path), '.mtre')) {
+            throw new InvalidArgumentException('Only .mtre files can be imported from Nextcloud Files');
+        }
+
+        $file = $this->getUserFile($userId, $path);
+        return $this->importMtre($userId, $file->getContent(), pathinfo($file->getName(), PATHINFO_FILENAME), $path);
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function getTree(string $userId, int $treeId): ?array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at')
+        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
@@ -192,6 +216,38 @@ final class TreeService {
         return [
             'filename' => $this->exportFilename((string)$root['title']),
             'contents' => $json . "\n",
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function exportMtreToFiles(string $userId, int $treeId, ?int $nodeId = null, string $folderPath = '', string $filename = ''): ?array {
+        $tree = $this->getTree($userId, $treeId);
+        if ($tree === null) {
+            return null;
+        }
+
+        $export = $this->exportMtre($userId, $treeId, $nodeId);
+        if ($export === null) {
+            return null;
+        }
+
+        $folderPath = trim($folderPath) === '' ? $this->defaultExportFolder($tree) : $this->normalisePath($folderPath);
+        $filename = trim($filename) === '' ? (string)$export['filename'] : $this->normaliseFilename($filename);
+        $folder = $this->getOrCreateUserFolder($userId, $folderPath);
+        $path = $this->uniqueFilePath($folder, $folderPath, $filename);
+        $file = $folder->newFile(basename($path));
+        $file->putContent((string)$export['contents']);
+        $this->updateTreeFilePaths($treeId, null, $folderPath);
+
+        $updated = $this->getTree($userId, $treeId);
+
+        return [
+            'path' => $path,
+            'folderPath' => $folderPath,
+            'filename' => basename($path),
+            'tree' => $updated,
         ];
     }
 
@@ -421,7 +477,7 @@ final class TreeService {
         return $this->loadedTree($userId, $treeId);
     }
 
-    private function insertTree(string $userId, string $title, int $now): int {
+    private function insertTree(string $userId, string $title, int $now, ?string $sourceFilePath = null, ?string $lastExportFolderPath = null): int {
         $qb = $this->db->getQueryBuilder();
         $qb->insert('nxtree_trees')
             ->values([
@@ -430,6 +486,8 @@ final class TreeService {
                 'revision' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
                 'created_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
                 'updated_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
+                'source_file_path' => $sourceFilePath === null ? $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL) : $qb->createNamedParameter($sourceFilePath),
+                'last_export_folder_path' => $lastExportFolderPath === null ? $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL) : $qb->createNamedParameter($lastExportFolderPath),
             ])
             ->executeStatement();
 
@@ -540,6 +598,19 @@ final class TreeService {
             ->set('title', $qb->createNamedParameter($title))
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->executeStatement();
+    }
+
+    private function updateTreeFilePaths(int $treeId, ?string $sourceFilePath, ?string $lastExportFolderPath): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_trees')
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)));
+        if ($sourceFilePath !== null) {
+            $qb->set('source_file_path', $qb->createNamedParameter($sourceFilePath));
+        }
+        if ($lastExportFolderPath !== null) {
+            $qb->set('last_export_folder_path', $qb->createNamedParameter($lastExportFolderPath));
+        }
+        $qb->executeStatement();
     }
 
     private function softDeleteNode(int $nodeId, int $now): void {
@@ -718,6 +789,110 @@ final class TreeService {
     }
 
     /**
+     * @param array<string, mixed> $tree
+     */
+    private function defaultExportFolder(array $tree): string {
+        $lastExportFolder = trim((string)($tree['lastExportFolderPath'] ?? ''));
+        if ($lastExportFolder !== '') {
+            return $this->normalisePath($lastExportFolder);
+        }
+
+        $sourceFilePath = trim((string)($tree['sourceFilePath'] ?? ''));
+        if ($sourceFilePath !== '') {
+            return $this->parentPath($sourceFilePath);
+        }
+
+        return self::DEFAULT_EXPORT_FOLDER;
+    }
+
+    private function normalisePath(string $path): string {
+        $path = trim(str_replace('\\', '/', $path));
+        $path = preg_replace('#/+#', '/', $path) ?? '/';
+        if ($path === '' || $path === '.') {
+            return '/';
+        }
+        if (!str_starts_with($path, '/')) {
+            $path = '/' . $path;
+        }
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                array_pop($parts);
+                continue;
+            }
+            $parts[] = $part;
+        }
+
+        return '/' . implode('/', $parts);
+    }
+
+    private function parentPath(string $path): string {
+        $path = $this->normalisePath($path);
+        $parent = dirname($path);
+        return $parent === '\\' || $parent === '.' ? '/' : $this->normalisePath($parent);
+    }
+
+    private function normaliseFilename(string $filename): string {
+        $filename = basename(str_replace('\\', '/', trim($filename)));
+        $filename = preg_replace('/[^A-Za-z0-9._ -]+/', '-', $filename) ?: 'nxtree';
+        if (!str_ends_with(strtolower($filename), '.mtre')) {
+            $filename = preg_replace('/\.(mtre|json|hjt|ctd)$/i', '', $filename) . '.mtre';
+        }
+
+        return $filename;
+    }
+
+    private function getUserFolder(string $userId): Folder {
+        return $this->rootFolder->getUserFolder($userId);
+    }
+
+    private function getUserFile(string $userId, string $path): File {
+        $node = $this->getUserFolder($userId)->get(ltrim($path, '/'));
+        if (!$node instanceof File) {
+            throw new InvalidArgumentException('Nextcloud Files path is not a file');
+        }
+
+        return $node;
+    }
+
+    private function getOrCreateUserFolder(string $userId, string $path): Folder {
+        $path = $this->normalisePath($path);
+        $folder = $this->getUserFolder($userId);
+        if ($path === '/') {
+            return $folder;
+        }
+
+        foreach (explode('/', trim($path, '/')) as $part) {
+            try {
+                $node = $folder->get($part);
+                if (!$node instanceof Folder) {
+                    throw new InvalidArgumentException($path . ' contains a file where a folder is required');
+                }
+                $folder = $node;
+            } catch (NotFoundException) {
+                $folder = $folder->newFolder($part);
+            }
+        }
+
+        return $folder;
+    }
+
+    private function uniqueFilePath(Folder $folder, string $folderPath, string $filename): string {
+        $base = preg_replace('/\.mtre$/i', '', $filename) ?: 'nxtree';
+        $candidate = $filename;
+        $counter = 2;
+        while ($folder->nodeExists($candidate)) {
+            $candidate = $base . '-' . $counter . '.mtre';
+            $counter++;
+        }
+
+        return rtrim($this->normalisePath($folderPath), '/') . '/' . $candidate;
+    }
+
+    /**
      * @return array{array<string, mixed>, array<string, mixed>}
      */
     private function nodeContext(string $userId, int $nodeId, int $baseRevision): array {
@@ -827,7 +1002,7 @@ final class TreeService {
      */
     private function treeRow(int $treeId): ?array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'owner_user_id', 'root_node_id', 'revision')
+        $result = $qb->select('id', 'owner_user_id', 'root_node_id', 'revision', 'source_file_path', 'last_export_folder_path')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
@@ -851,6 +1026,8 @@ final class TreeService {
             'revision' => (int)$row['revision'],
             'createdAt' => (int)$row['created_at'],
             'updatedAt' => (int)$row['updated_at'],
+            'sourceFilePath' => $row['source_file_path'] === null ? null : (string)$row['source_file_path'],
+            'lastExportFolderPath' => $row['last_export_folder_path'] === null ? null : (string)$row['last_export_folder_path'],
         ];
     }
 

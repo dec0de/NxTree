@@ -6,7 +6,7 @@ NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's
 
 ## Status
 
-NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, list them, open a tree, import `.mtre` files, export the selected branch as `.mtre`, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, and receive polling-based remote updates.
+NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, list them, open a tree, import `.mtre` files from Nextcloud Files or browser upload, export the selected branch to Nextcloud Files or browser download, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, and receive polling-based remote updates.
 
 ## Installation
 
@@ -58,6 +58,7 @@ nxtree_operations
 Core concepts:
 
 - `nxtree_trees` stores tree title, owner, root node, revision, and timestamps.
+- `nxtree_trees` also stores imported source file paths and last export folders for Nextcloud Files workflows.
 - `nxtree_nodes` stores parent, ordering, title, Markdown content, and soft-delete state.
 - `nxtree_operations` stores every mutation with revision and user id.
 - `nxtree_presence` will store who is viewing or editing a tree/node. This is planned after the first CRUD and sync endpoints.
@@ -144,6 +145,7 @@ This gives NxTree safe multiuser editing before adding more advanced real-time i
 - Import `.mtre` into database-backed trees.
 - Export database trees to `.mtre`.
 - Export selected branches to `.mtre`.
+- Import/export through Nextcloud Files paths, with browser upload/download retained as fallback.
 - Reuse MeeTree HJT/CTD codecs where practical.
 
 ### Phase 7: Real-Time Text Collaboration

@@ -28,6 +28,8 @@
         const fileToggle = document.getElementById('nxtree-file-toggle');
         const fileMenu = document.getElementById('nxtree-file-menu');
         const newTreeButton = document.getElementById('nxtree-new-tree');
+        const importFilesButton = document.getElementById('nxtree-import-files');
+        const exportFilesButton = document.getElementById('nxtree-export-files');
         const importFile = document.getElementById('nxtree-import-file');
         const exportMtreButton = document.getElementById('nxtree-export-mtre');
         const treeList = document.getElementById('nxtree-tree-list');
@@ -932,6 +934,47 @@
                 });
         }
 
+        function importTreeFromFiles() {
+            const path = window.prompt('Nextcloud .mtre path to import', '/NxTree/tree.mtre');
+            if (path === null) {
+                return;
+            }
+            const body = new URLSearchParams();
+            body.set('path', path);
+            newTreeButton.disabled = true;
+            importFilesButton.disabled = true;
+            setStatus(`Importing ${path} from Nextcloud Files...`);
+            fetch(endpoint('/import/files'), { method: 'POST', headers: requestHeaders(), body })
+                .then(response => response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Could not import from Nextcloud Files');
+                    }
+                    return data;
+                }))
+                .then(data => {
+                    trees = trees.filter(tree => tree.id !== data.tree.id);
+                    trees.unshift(data.tree);
+                    selectedTreeId = data.tree.id;
+                    renderTreeList();
+                    currentTree = data.tree;
+                    selectedNodeId = currentTree.rootNodeId;
+                    collapsedIds.clear();
+                    remoteChangePending = false;
+                    revisionEl.textContent = `Revision ${currentTree.revision}`;
+                    setSaveState('Saved');
+                    renderTree();
+                    setEditorMode('preview');
+                    startTreeSync();
+                    setStatus(`Imported ${data.tree.nodes.length} node(s) from ${path}.`);
+                })
+                .catch(error => setStatus(error.message))
+                .finally(() => {
+                    newTreeButton.disabled = false;
+                    importFilesButton.disabled = false;
+                    fileMenu.hidden = true;
+                });
+        }
+
         function exportMtre() {
             if (!currentTree) {
                 setStatus('Open a tree before exporting');
@@ -941,6 +984,74 @@
             window.location.href = endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/export/mtre' + params);
             fileMenu.hidden = true;
             setStatus('Exporting selected branch as .mtre...');
+        }
+
+        function parentPath(path) {
+            const normalized = String(path || '').replace(/\\/g, '/').replace(/\/+/g, '/');
+            const parts = normalized.split('/').filter(Boolean);
+            parts.pop();
+            return '/' + parts.join('/');
+        }
+
+        function defaultExportFolder() {
+            if (!currentTree) {
+                return '/NxTree';
+            }
+            if (currentTree.lastExportFolderPath) {
+                return currentTree.lastExportFolderPath;
+            }
+            if (currentTree.sourceFilePath) {
+                return parentPath(currentTree.sourceFilePath);
+            }
+            return '/NxTree';
+        }
+
+        function exportMtreToFiles() {
+            if (!currentTree) {
+                setStatus('Open a tree before exporting');
+                return;
+            }
+            const folderPath = window.prompt('Nextcloud folder to save into', defaultExportFolder());
+            if (folderPath === null) {
+                return;
+            }
+            const node = selectedNode();
+            const suggestedFilename = ((node && node.title) || currentTree.title || 'nxtree').replace(/[^A-Za-z0-9._ -]+/g, '-') + '.mtre';
+            const filename = window.prompt('Export filename', suggestedFilename);
+            if (filename === null) {
+                return;
+            }
+            const body = new URLSearchParams();
+            body.set('folderPath', folderPath);
+            body.set('filename', filename);
+            if (selectedNodeId !== null) {
+                body.set('nodeId', String(selectedNodeId));
+            }
+            exportFilesButton.disabled = true;
+            setStatus(`Saving selected branch to ${folderPath}...`);
+            fetch(endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/export/files'), {
+                method: 'POST',
+                headers: requestHeaders(),
+                body,
+            })
+                .then(response => response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Could not export to Nextcloud Files');
+                    }
+                    return data;
+                }))
+                .then(data => {
+                    if (data.tree) {
+                        currentTree = data.tree;
+                        refreshTreeSummary(currentTree);
+                    }
+                    fileMenu.hidden = true;
+                    setStatus(`Saved selected branch to ${data.path}.`);
+                })
+                .catch(error => setStatus(error.message))
+                .finally(() => {
+                    exportFilesButton.disabled = false;
+                });
         }
 
         function runSearch() {
@@ -998,6 +1109,8 @@
             fileMenu.hidden = !fileMenu.hidden;
         });
         newTreeButton.addEventListener('click', createTree);
+        importFilesButton.addEventListener('click', importTreeFromFiles);
+        exportFilesButton.addEventListener('click', exportMtreToFiles);
         importFile.addEventListener('change', () => importTree(importFile.files && importFile.files.length > 0 ? importFile.files[0] : null));
         exportMtreButton.addEventListener('click', exportMtre);
         editModeButton.addEventListener('click', () => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit'));

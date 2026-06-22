@@ -9,10 +9,12 @@
         </header>
         <div id="nxtree-file-menu" class="nxtree-file-actions" hidden>
             <button type="button" id="nxtree-new-tree">Create New Tree</button>
-            <label class="button" for="nxtree-import-file">Import .mtre</label>
+            <button type="button" id="nxtree-import-files">Import from Files</button>
+            <button type="button" id="nxtree-export-files" title="Save the selected branch to Nextcloud Files">Export to Files</button>
+            <label class="button" for="nxtree-import-file">Upload .mtre</label>
             <input id="nxtree-import-file" type="file" accept=".mtre,application/json" />
-            <button type="button" id="nxtree-export-mtre" title="Export the selected branch and its children">Export .mtre</button>
-            <small>Exports selected branch</small>
+            <button type="button" id="nxtree-export-mtre" title="Download the selected branch and its children">Download .mtre</button>
+            <small>Files export defaults to imported folder or /NxTree</small>
         </div>
         <div class="nxtree-tree-list-panel">
             <strong>Trees</strong>

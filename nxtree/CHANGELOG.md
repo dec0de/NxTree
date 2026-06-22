@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0
+
+- Add Nextcloud Files based `.mtre` import by server-side path.
+- Add Nextcloud Files based selected-branch `.mtre` export.
+- Remember imported source file paths and last export folders for each database tree.
+- Default exports to the imported file's folder when known, otherwise `/NxTree`.
+- Keep browser upload/download as fallback actions.
+
 ## 0.8.2
 
 - Replace NxTree's minimal Markdown preview renderer with MeeTree-compatible rendering.

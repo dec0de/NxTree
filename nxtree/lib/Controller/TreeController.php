@@ -92,6 +92,24 @@ final class TreeController extends Controller {
      * @NoAdminRequired
      */
     #[NoAdminRequired]
+    public function importFromFiles(string $path = ''): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $tree = $this->treeService->importMtreFromFiles($this->userId, $path);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['error' => $e->getMessage() ?: 'Could not import from Nextcloud Files'], Http::STATUS_BAD_REQUEST);
+        }
+
+        return new JSONResponse(['tree' => $tree], Http::STATUS_CREATED);
+    }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
     public function show(int $treeId): JSONResponse {
         if ($this->userId === null) {
             return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
@@ -143,6 +161,27 @@ final class TreeController extends Controller {
             $export['filename'],
             'application/json; charset=utf-8'
         );
+    }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
+    public function exportMtreToFiles(int $treeId, int $nodeId = 0, string $folderPath = '', string $filename = ''): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $export = $this->treeService->exportMtreToFiles($this->userId, $treeId, $nodeId > 0 ? $nodeId : null, $folderPath, $filename);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['error' => $e->getMessage() ?: 'Could not export to Nextcloud Files'], Http::STATUS_BAD_REQUEST);
+        }
+        if ($export === null) {
+            return new JSONResponse(['error' => 'Tree not found'], Http::STATUS_NOT_FOUND);
+        }
+
+        return new JSONResponse($export, Http::STATUS_CREATED);
     }
 
     /**

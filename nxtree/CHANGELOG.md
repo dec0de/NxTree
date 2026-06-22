@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.7
+
+- Replace browser download from the File menu with Organize Tree for choosing a virtual Tree Library folder from existing Nextcloud folders.
+- Store the chosen virtual library folder on database trees for future file-like organization.
+
 ## 0.9.6
 
 - Fix Recent Trees rows so the title and source metadata render as two readable lines instead of clipping together.

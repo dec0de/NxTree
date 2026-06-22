@@ -52,6 +52,10 @@ final class Version000100Date20260622120000 extends SimpleMigrationStep {
                 'notnull' => false,
                 'unsigned' => true,
             ]);
+            $table->addColumn('library_path', 'string', [
+                'notnull' => false,
+                'length' => 1024,
+            ]);
             $table->setPrimaryKey(['id']);
             $table->addIndex(['owner_user_id'], 'nxtree_trees_owner_idx');
             $table->addIndex(['deleted_at'], 'nxtree_trees_deleted_idx');

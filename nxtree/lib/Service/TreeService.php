@@ -27,7 +27,7 @@ final class TreeService {
      */
     public function listTrees(string $userId): array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path')
+        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path', 'library_path')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
@@ -192,7 +192,7 @@ final class TreeService {
      */
     public function getTree(string $userId, int $treeId): ?array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path')
+        $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path', 'library_path')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
@@ -209,6 +209,44 @@ final class TreeService {
         $tree['nodes'] = $this->listNodes($treeId);
 
         return $tree;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function organizeTree(string $userId, int $treeId, string $libraryPath, int $baseRevision): array {
+        $libraryPath = $this->normalisePath($libraryPath);
+        $now = time();
+        $this->db->beginTransaction();
+
+        try {
+            $tree = $this->treeRow($treeId);
+            if ($tree === null || (string)$tree['owner_user_id'] !== $userId) {
+                throw new InvalidArgumentException('Tree not found');
+            }
+            if ($baseRevision !== (int)$tree['revision']) {
+                throw new UnexpectedValueException('Tree changed elsewhere. Reload before organizing.');
+            }
+            try {
+                $this->getUserFolderAtPath($userId, $libraryPath);
+            } catch (NotFoundException) {
+                throw new InvalidArgumentException('Library folder does not exist');
+            }
+
+            $newRevision = (int)$tree['revision'] + 1;
+            $this->updateTreeLibraryPath($treeId, $libraryPath);
+            $this->updateTreeRevision($treeId, $newRevision, $now);
+            $this->insertOperation($treeId, $userId, $newRevision, 'organizeTree', [
+                'libraryPath' => $libraryPath,
+            ], $now);
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+
+        return $this->loadedTree($userId, $treeId);
     }
 
     /**
@@ -722,6 +760,14 @@ final class TreeService {
         $qb->executeStatement();
     }
 
+    private function updateTreeLibraryPath(int $treeId, string $libraryPath): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_trees')
+            ->set('library_path', $qb->createNamedParameter($libraryPath))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
     private function softDeleteNode(int $nodeId, int $now): void {
         $qb = $this->db->getQueryBuilder();
         $qb->update('nxtree_nodes')
@@ -920,6 +966,11 @@ final class TreeService {
      * @param array<string, mixed> $tree
      */
     private function defaultExportFolder(array $tree): string {
+        $libraryPath = trim((string)($tree['libraryPath'] ?? ''));
+        if ($libraryPath !== '') {
+            return $this->normalisePath($libraryPath);
+        }
+
         $lastExportFolder = trim((string)($tree['lastExportFolderPath'] ?? ''));
         if ($lastExportFolder !== '') {
             return $this->normalisePath($lastExportFolder);
@@ -987,6 +1038,10 @@ final class TreeService {
     }
 
     private function getUserFolderAtPath(string $userId, string $path): Folder {
+        if ($this->normalisePath($path) === '/') {
+            return $this->getUserFolder($userId);
+        }
+
         $node = $this->getUserFolder($userId)->get(ltrim($path, '/'));
         if (!$node instanceof Folder) {
             throw new InvalidArgumentException('Nextcloud Files path is not a folder');
@@ -1162,7 +1217,7 @@ final class TreeService {
      */
     private function treeRow(int $treeId): ?array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'owner_user_id', 'root_node_id', 'revision', 'source_file_path', 'last_export_folder_path')
+        $result = $qb->select('id', 'owner_user_id', 'root_node_id', 'revision', 'source_file_path', 'last_export_folder_path', 'library_path')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
@@ -1188,6 +1243,7 @@ final class TreeService {
             'updatedAt' => (int)$row['updated_at'],
             'sourceFilePath' => $row['source_file_path'] === null ? null : (string)$row['source_file_path'],
             'lastExportFolderPath' => $row['last_export_folder_path'] === null ? null : (string)$row['last_export_folder_path'],
+            'libraryPath' => $row['library_path'] === null ? null : (string)$row['library_path'],
         ];
     }
 

@@ -6,7 +6,7 @@ NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's
 
 ## Status
 
-NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, open and switch recent trees from the File menu with source-path disambiguation, import `.mtre` files from an in-app Nextcloud Files browser or browser upload, export the selected branch with a Nextcloud Files destination/filename browser or browser download, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, undo recent structure mistakes when safe, and receive polling-based remote updates. The Files browser starts at a known source folder when available and otherwise falls back to the Files root.
+NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, open and switch recent trees from the File menu with source-path disambiguation, organize database trees into virtual library folders chosen from existing Nextcloud folders, import `.mtre` files from an in-app Nextcloud Files browser, export the selected branch with a Nextcloud Files destination/filename browser, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, undo recent structure mistakes when safe, and receive polling-based remote updates. The Files browser starts at a known source folder when available and otherwise falls back to the Files root.
 
 ## Installation
 
@@ -145,7 +145,8 @@ This gives NxTree safe multiuser editing before adding more advanced real-time i
 - Import `.mtre` into database-backed trees.
 - Export database trees to `.mtre`.
 - Export selected branches to `.mtre`.
-- Import/export through Nextcloud Files paths, with browser upload/download retained as fallback.
+- Import/export through Nextcloud Files paths.
+- Organize database trees into virtual library folders derived from existing Nextcloud folders.
 - Reuse MeeTree HJT/CTD codecs where practical.
 
 ### Phase 7: Real-Time Text Collaboration

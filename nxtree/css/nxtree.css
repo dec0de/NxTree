@@ -186,10 +186,6 @@
     font-weight: 600;
 }
 
-#nxtree-import-file {
-    display: none;
-}
-
 .nxtree-tree {
     flex: 1;
     min-height: 0;

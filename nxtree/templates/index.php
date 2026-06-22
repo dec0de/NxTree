@@ -11,12 +11,10 @@
             <button type="button" id="nxtree-new-tree">Create New Tree</button>
             <button type="button" id="nxtree-import-files">Import from Files</button>
             <button type="button" id="nxtree-export-files" title="Save the selected branch to Nextcloud Files">Export to Files</button>
-            <label class="button" for="nxtree-import-file">Upload .mtre</label>
-            <input id="nxtree-import-file" type="file" accept=".mtre,application/json" />
-            <button type="button" id="nxtree-export-mtre" title="Download the selected branch and its children">Download .mtre</button>
-            <small>Files export defaults to imported folder or /NxTree</small>
+            <button type="button" id="nxtree-organize-tree" title="Choose where this database tree appears in the Tree Library">Organize Tree</button>
+            <small>Organize stores a virtual folder for database trees; import/export still uses Nextcloud Files.</small>
             <div class="nxtree-tree-list-panel">
-                <strong>Recent Trees</strong>
+                <strong>Tree Library</strong>
                 <p id="nxtree-tree-empty" class="nxtree-empty">No trees yet.</p>
                 <nav id="nxtree-tree-list" class="nxtree-tree-list" aria-label="NxTree trees"></nav>
             </div>
@@ -72,7 +70,7 @@
             </div>
             <div id="nxtree-files-list" class="nxtree-files-list"></div>
             <div id="nxtree-files-export-fields" class="nxtree-files-export-fields" hidden>
-                <label>Filename <input id="nxtree-files-filename" type="text" /></label>
+                <label id="nxtree-files-filename-label">Filename <input id="nxtree-files-filename" type="text" /></label>
                 <button type="button" id="nxtree-files-save">Save Here</button>
             </div>
         </div>

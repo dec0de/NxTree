@@ -30,8 +30,7 @@
         const newTreeButton = document.getElementById('nxtree-new-tree');
         const importFilesButton = document.getElementById('nxtree-import-files');
         const exportFilesButton = document.getElementById('nxtree-export-files');
-        const importFile = document.getElementById('nxtree-import-file');
-        const exportMtreButton = document.getElementById('nxtree-export-mtre');
+        const organizeTreeButton = document.getElementById('nxtree-organize-tree');
         const treeList = document.getElementById('nxtree-tree-list');
         const treeEmpty = document.getElementById('nxtree-tree-empty');
         const treeEl = document.getElementById('nxtree-tree');
@@ -68,6 +67,7 @@
         const filesPathEl = document.getElementById('nxtree-files-path');
         const filesList = document.getElementById('nxtree-files-list');
         const filesExportFields = document.getElementById('nxtree-files-export-fields');
+        const filesFilenameLabel = document.getElementById('nxtree-files-filename-label');
         const filesFilename = document.getElementById('nxtree-files-filename');
         const filesSave = document.getElementById('nxtree-files-save');
 
@@ -397,6 +397,9 @@
         }
 
         function treeMeta(tree) {
+            if (tree.libraryPath) {
+                return `Library: ${tree.libraryPath}`;
+            }
             if (tree.sourceFilePath) {
                 return tree.sourceFilePath;
             }
@@ -408,6 +411,9 @@
 
         function treeTooltip(tree) {
             const lines = [tree.title || 'Untitled tree'];
+            if (tree.libraryPath) {
+                lines.push(`Library folder: ${tree.libraryPath}`);
+            }
             if (tree.sourceFilePath) {
                 lines.push(`Source: ${tree.sourceFilePath}`);
             }
@@ -427,6 +433,7 @@
                 existing.updatedAt = tree.updatedAt;
                 existing.sourceFilePath = tree.sourceFilePath;
                 existing.lastExportFolderPath = tree.lastExportFolderPath;
+                existing.libraryPath = tree.libraryPath;
             }
             renderTreeList();
         }
@@ -1018,7 +1025,6 @@
             const body = new FormData();
             body.append('file', file);
             newTreeButton.disabled = true;
-            importFile.disabled = true;
             setStatus(`Importing ${file.name}...`);
             fetch(endpoint('/import'), { method: 'POST', headers: requestHeaders(), body })
                 .then(response => response.json().then(data => {
@@ -1046,8 +1052,6 @@
                 .catch(error => setStatus(error.message))
                 .finally(() => {
                     newTreeButton.disabled = false;
-                    importFile.disabled = false;
-                    importFile.value = '';
                     fileMenu.hidden = true;
                 });
         }
@@ -1116,6 +1120,9 @@
             if (!currentTree) {
                 return '/NxTree';
             }
+            if (currentTree.libraryPath) {
+                return currentTree.libraryPath;
+            }
             if (currentTree.lastExportFolderPath) {
                 return currentTree.lastExportFolderPath;
             }
@@ -1123,6 +1130,49 @@
                 return parentPath(currentTree.sourceFilePath);
             }
             return '/NxTree';
+        }
+
+        function organizeTree() {
+            if (!currentTree) {
+                setStatus('Open a tree before organizing');
+                return;
+            }
+            openFilesPanel('organize', currentTree.libraryPath || defaultExportFolder());
+        }
+
+        function organizeTreeAtPath(folderPath) {
+            if (!currentTree) {
+                setStatus('Open a tree before organizing');
+                return;
+            }
+            const body = new URLSearchParams();
+            body.set('libraryPath', folderPath);
+            body.set('baseRevision', String(currentTree.revision));
+            organizeTreeButton.disabled = true;
+            setStatus(`Setting Tree Library folder to ${folderPath}...`);
+            fetch(endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/organize'), {
+                method: 'POST',
+                headers: requestHeaders(),
+                body,
+            })
+                .then(response => response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Could not organize tree');
+                    }
+                    return data;
+                }))
+                .then(data => {
+                    currentTree = data.tree;
+                    refreshTreeSummary(currentTree);
+                    revisionEl.textContent = `Revision ${currentTree.revision}`;
+                    fileMenu.hidden = true;
+                    filesPanel.hidden = true;
+                    setStatus(`Tree appears in ${folderPath}.`);
+                })
+                .catch(error => setStatus(error.message))
+                .finally(() => {
+                    organizeTreeButton.disabled = false;
+                });
         }
 
         function exportMtreToFiles() {
@@ -1175,10 +1225,15 @@
 
         function openFilesPanel(mode, path) {
             filesMode = mode;
-            filesTitle.textContent = mode === 'export' ? 'Export To Nextcloud Files' : 'Import From Nextcloud Files';
-            filesExportFields.hidden = mode !== 'export';
+            filesTitle.textContent = mode === 'export' ? 'Export To Nextcloud Files' : (mode === 'organize' ? 'Choose Tree Library Folder' : 'Import From Nextcloud Files');
+            filesExportFields.hidden = mode === 'import';
+            filesFilenameLabel.hidden = mode !== 'export';
+            filesSave.textContent = mode === 'organize' ? 'Use This Folder' : 'Save Here';
             if (mode === 'export') {
                 filesFilename.value = suggestedExportFilename();
+            }
+            if (mode !== 'export') {
+                filesFilename.value = '';
             }
             filesPanel.hidden = false;
             browseFiles(path || '/', mode === 'export');
@@ -1198,7 +1253,13 @@
                     filesCurrentPath = data.path || '/';
                     filesParentPath = data.parent || null;
                     renderFilesList(Array.isArray(data.entries) ? data.entries : []);
-                    setStatus(filesMode === 'export' ? `Choose export folder: ${filesCurrentPath}` : `Choose .mtre file from ${filesCurrentPath}`);
+                    if (filesMode === 'export') {
+                        setStatus(`Choose export folder: ${filesCurrentPath}`);
+                    } else if (filesMode === 'organize') {
+                        setStatus(`Choose Tree Library folder: ${filesCurrentPath}`);
+                    } else {
+                        setStatus(`Choose .mtre file from ${filesCurrentPath}`);
+                    }
                 })
                 .catch(error => setStatus(error.message));
         }
@@ -1207,14 +1268,15 @@
             filesPathEl.textContent = filesCurrentPath;
             filesUp.disabled = filesParentPath === null;
             filesList.textContent = '';
-            if (entries.length === 0) {
+            const visibleEntries = filesMode === 'import' ? entries : entries.filter(entry => entry.type === 'folder');
+            if (visibleEntries.length === 0) {
                 const empty = document.createElement('p');
                 empty.className = 'nxtree-empty';
-                empty.textContent = filesMode === 'export' ? 'No subfolders or .mtre files here.' : 'No folders or .mtre files here.';
+                empty.textContent = filesMode === 'import' ? 'No folders or .mtre files here.' : 'No subfolders here.';
                 filesList.appendChild(empty);
                 return;
             }
-            entries.forEach(entry => {
+            visibleEntries.forEach(entry => {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = `nxtree-files-entry ${entry.type === 'folder' ? 'folder' : 'file'}`;
@@ -1226,9 +1288,6 @@
                         importTreeFromFilesPath(entry.path);
                     }
                 });
-                if (entry.type === 'file' && filesMode === 'export') {
-                    button.disabled = true;
-                }
                 filesList.appendChild(button);
             });
         }
@@ -1290,8 +1349,7 @@
         newTreeButton.addEventListener('click', createTree);
         importFilesButton.addEventListener('click', importTreeFromFiles);
         exportFilesButton.addEventListener('click', exportMtreToFiles);
-        importFile.addEventListener('change', () => importTree(importFile.files && importFile.files.length > 0 ? importFile.files[0] : null));
-        exportMtreButton.addEventListener('click', exportMtre);
+        organizeTreeButton.addEventListener('click', organizeTree);
         editModeButton.addEventListener('click', () => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit'));
         titleEl.addEventListener('input', scheduleSelectedNodeSave);
         contentEl.addEventListener('input', scheduleSelectedNodeSave);
@@ -1321,7 +1379,11 @@
             }
         });
         filesSave.addEventListener('click', () => {
-            exportMtreToFilesPath(filesCurrentPath, filesFilename.value || suggestedExportFilename());
+            if (filesMode === 'organize') {
+                organizeTreeAtPath(filesCurrentPath);
+            } else {
+                exportMtreToFilesPath(filesCurrentPath, filesFilename.value || suggestedExportFilename());
+            }
         });
         searchInput.addEventListener('input', runSearch);
         [searchTitle, searchContent, searchCase, searchRegex].forEach(input => {

@@ -32,9 +32,10 @@
         <div class="nxtree-editor-toolbar">
             <input id="nxtree-node-title" type="text" disabled placeholder="Node title" />
             <button type="button" id="nxtree-edit-mode" class="nxtree-mode-button" aria-pressed="false" title="Switch to edit mode">Edit</button>
+            <span id="nxtree-save-state" class="nxtree-save-state">Saved</span>
             <span id="nxtree-revision" class="nxtree-revision"></span>
         </div>
-        <textarea id="nxtree-node-content" disabled spellcheck="true" placeholder="Node editing lands in the next milestone."></textarea>
+        <textarea id="nxtree-node-content" disabled spellcheck="true" placeholder="Write Markdown content here"></textarea>
         <article id="nxtree-node-preview" class="nxtree-markdown-preview" hidden></article>
         <p id="nxtree-status" role="status">Loading trees...</p>
     </main>

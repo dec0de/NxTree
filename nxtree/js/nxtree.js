@@ -37,6 +37,7 @@
         const contentEl = document.getElementById('nxtree-node-content');
         const previewEl = document.getElementById('nxtree-node-preview');
         const editModeButton = document.getElementById('nxtree-edit-mode');
+        const saveStateEl = document.getElementById('nxtree-save-state');
         const revisionEl = document.getElementById('nxtree-revision');
         const statusEl = document.getElementById('nxtree-status');
         const expandButton = document.getElementById('nxtree-expand-branch');
@@ -52,10 +53,17 @@
         let currentTree = null;
         let selectedNodeId = null;
         let editorMode = 'preview';
+        let saveTimer = null;
+        let isSaving = false;
+        let saveQueued = false;
         const collapsedIds = new Set();
 
         function setStatus(message) {
             statusEl.textContent = message;
+        }
+
+        function setSaveState(message) {
+            saveStateEl.textContent = message;
         }
 
         function initDivider() {
@@ -184,6 +192,16 @@
             });
         }
 
+        function refreshTreeSummary(tree) {
+            const existing = trees.find(item => item.id === tree.id);
+            if (existing) {
+                existing.title = tree.title;
+                existing.revision = tree.revision;
+                existing.updatedAt = tree.updatedAt;
+            }
+            renderTreeList();
+        }
+
         function renderTree() {
             treeEl.textContent = '';
             const roots = buildNodeTree();
@@ -261,8 +279,12 @@
                 titleEl.value = '';
                 contentEl.value = '';
                 previewEl.innerHTML = '';
+                titleEl.disabled = true;
+                contentEl.disabled = true;
                 return;
             }
+            titleEl.disabled = false;
+            contentEl.disabled = false;
             titleEl.value = node.title || '';
             contentEl.value = node.contentMarkdown || '';
             contentEl.hidden = editorMode !== 'edit';
@@ -283,6 +305,96 @@
             editModeButton.classList.toggle('active', mode === 'edit');
             editModeButton.setAttribute('aria-pressed', mode === 'edit' ? 'true' : 'false');
             renderSelectedNode();
+        }
+
+        function markDirty() {
+            setSaveState('Saving...');
+            if (saveTimer) {
+                clearTimeout(saveTimer);
+            }
+            saveTimer = setTimeout(saveSelectedNode, 650);
+        }
+
+        function updateSelectedNodeFromEditor() {
+            if (!currentTree || !Array.isArray(currentTree.nodes) || selectedNodeId === null) {
+                return null;
+            }
+            const node = currentTree.nodes.find(item => String(item.id) === String(selectedNodeId));
+            if (!node) {
+                return null;
+            }
+            node.title = titleEl.value;
+            node.contentMarkdown = contentEl.value;
+            return node;
+        }
+
+        function scheduleSelectedNodeSave() {
+            const node = updateSelectedNodeFromEditor();
+            if (!node) {
+                return;
+            }
+            renderTree();
+            if (editorMode === 'preview') {
+                previewEl.innerHTML = markdownToHtml(node.contentMarkdown || '');
+            }
+            markDirty();
+        }
+
+        function saveSelectedNode() {
+            if (saveTimer) {
+                clearTimeout(saveTimer);
+                saveTimer = null;
+            }
+            if (!currentTree || selectedNodeId === null) {
+                return;
+            }
+            if (isSaving) {
+                saveQueued = true;
+                return;
+            }
+            const node = updateSelectedNodeFromEditor();
+            if (!node) {
+                return;
+            }
+            const body = new URLSearchParams();
+            body.set('title', node.title || 'Untitled node');
+            body.set('contentMarkdown', node.contentMarkdown || '');
+            body.set('baseRevision', String(currentTree.revision));
+            isSaving = true;
+            setSaveState('Saving...');
+            fetch(endpoint('/nodes/' + encodeURIComponent(selectedNodeId)), {
+                method: 'PUT',
+                headers: requestHeaders(),
+                body,
+            })
+                .then(response => response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Could not save node');
+                    }
+                    return data;
+                }))
+                .then(data => {
+                    const previousSelection = selectedNodeId;
+                    currentTree = data.tree;
+                    selectedNodeId = previousSelection;
+                    revisionEl.textContent = `Revision ${currentTree.revision}`;
+                    refreshTreeSummary(currentTree);
+                    renderTree();
+                    setSaveState('Saved');
+                    setStatus('Saved node');
+                    runSearch();
+                })
+                .catch(error => {
+                    setSaveState('Save failed');
+                    setStatus(error.message);
+                })
+                .finally(() => {
+                    isSaving = false;
+                    if (saveQueued) {
+                        saveQueued = false;
+                        markDirty();
+                    }
+                });
         }
 
         function expandSelectedBranch() {
@@ -321,6 +433,7 @@
                     selectedNodeId = currentTree.rootNodeId;
                     collapsedIds.clear();
                     revisionEl.textContent = `Revision ${currentTree.revision}`;
+                    setSaveState('Saved');
                     renderTree();
                     setEditorMode('preview');
                     runSearch();
@@ -408,6 +521,7 @@
                     selectedNodeId = currentTree.rootNodeId;
                     collapsedIds.clear();
                     revisionEl.textContent = `Revision ${currentTree.revision}`;
+                    setSaveState('Saved');
                     renderTree();
                     setEditorMode('preview');
                     setStatus(`Imported ${data.tree.nodes.length} node(s) from ${file.name}.`);
@@ -451,6 +565,8 @@
         newTreeButton.addEventListener('click', createTree);
         importFile.addEventListener('change', () => importTree(importFile.files && importFile.files.length > 0 ? importFile.files[0] : null));
         editModeButton.addEventListener('click', () => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit'));
+        titleEl.addEventListener('input', scheduleSelectedNodeSave);
+        contentEl.addEventListener('input', scheduleSelectedNodeSave);
         expandButton.addEventListener('click', expandSelectedBranch);
         collapseButton.addEventListener('click', collapseSelectedBranch);
         searchToggle.addEventListener('click', () => {

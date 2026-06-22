@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Add editable node titles and Markdown content.
+- Save node edits through revisioned database operations with stale-revision conflict checks.
+- Update tree revisions and operation history when nodes are edited.
+- Add debounced autosave state in the editor toolbar.
+
 ## 0.4.0
 
 - Replace the early placeholder UI with a current MeeTree-style full-screen shell.

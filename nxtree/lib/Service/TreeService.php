@@ -7,6 +7,7 @@ namespace OCA\NxTree\Service;
 use InvalidArgumentException;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use UnexpectedValueException;
 
 final class TreeService {
     public function __construct(private IDBConnection $db) {
@@ -142,6 +143,62 @@ final class TreeService {
         return $tree;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function updateNode(string $userId, int $nodeId, string $title, string $contentMarkdown, int $baseRevision): array {
+        $title = trim($title);
+        if ($title === '') {
+            throw new InvalidArgumentException('Node title is required');
+        }
+        if (mb_strlen($title) > 255) {
+            throw new InvalidArgumentException('Node title must be 255 characters or fewer');
+        }
+
+        $now = time();
+        $this->db->beginTransaction();
+
+        try {
+            $node = $this->nodeRow($nodeId);
+            if ($node === null) {
+                throw new InvalidArgumentException('Node not found');
+            }
+
+            $tree = $this->treeRow((int)$node['tree_id']);
+            if ($tree === null || (string)$tree['owner_user_id'] !== $userId) {
+                throw new InvalidArgumentException('Node not found');
+            }
+
+            $currentRevision = (int)$tree['revision'];
+            if ($baseRevision !== $currentRevision) {
+                throw new UnexpectedValueException('Tree changed elsewhere. Reload before saving this node.');
+            }
+
+            $newRevision = $currentRevision + 1;
+            $this->updateNodeRow($nodeId, $title, $contentMarkdown, (int)$node['version'] + 1, $now);
+            $this->updateTreeRevision((int)$tree['id'], $newRevision, $now);
+            if ((int)$tree['root_node_id'] === $nodeId) {
+                $this->updateTreeTitle((int)$tree['id'], $title);
+            }
+            $this->insertOperation((int)$tree['id'], $userId, $newRevision, 'updateNode', [
+                'nodeId' => $nodeId,
+                'title' => $title,
+            ], $now);
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+
+        $updated = $this->getTree($userId, (int)$tree['id']);
+        if ($updated === null) {
+            throw new InvalidArgumentException('Updated tree could not be loaded');
+        }
+
+        return $updated;
+    }
+
     private function insertTree(string $userId, string $title, int $now): int {
         $qb = $this->db->getQueryBuilder();
         $qb->insert('nxtree_trees')
@@ -217,6 +274,34 @@ final class TreeService {
             ->executeStatement();
     }
 
+    private function updateNodeRow(int $nodeId, string $title, string $contentMarkdown, int $version, int $now): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_nodes')
+            ->set('title', $qb->createNamedParameter($title))
+            ->set('content_markdown', $qb->createNamedParameter($contentMarkdown))
+            ->set('version', $qb->createNamedParameter($version, IQueryBuilder::PARAM_INT))
+            ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    private function updateTreeRevision(int $treeId, int $revision, int $now): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_trees')
+            ->set('revision', $qb->createNamedParameter($revision, IQueryBuilder::PARAM_INT))
+            ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    private function updateTreeTitle(int $treeId, string $title): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_trees')
+            ->set('title', $qb->createNamedParameter($title))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
     /**
      * @param array<string, int|string|null> $payload
      */
@@ -264,6 +349,40 @@ final class TreeService {
         $result->closeCursor();
 
         return $nodes;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function nodeRow(int $nodeId): ?array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id', 'tree_id', 'version')
+            ->from('nxtree_nodes')
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->isNull('deleted_at'))
+            ->executeQuery();
+
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function treeRow(int $treeId): ?array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id', 'owner_user_id', 'root_node_id', 'revision')
+            ->from('nxtree_trees')
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->isNull('deleted_at'))
+            ->executeQuery();
+
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        return $row === false ? null : $row;
     }
 
     /**

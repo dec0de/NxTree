@@ -262,6 +262,7 @@
     font-weight: 600;
 }
 
+.nxtree-save-state,
 .nxtree-revision {
     flex: 0 0 auto;
     color: var(--color-text-maxcontrast);

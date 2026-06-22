@@ -11,6 +11,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use UnexpectedValueException;
 
 final class TreeController extends Controller {
     public function __construct(
@@ -97,6 +98,26 @@ final class TreeController extends Controller {
         $tree = $this->treeService->getTree($this->userId, $treeId);
         if ($tree === null) {
             return new JSONResponse(['error' => 'Tree not found'], Http::STATUS_NOT_FOUND);
+        }
+
+        return new JSONResponse(['tree' => $tree]);
+    }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
+    public function updateNode(int $nodeId, string $title = '', string $contentMarkdown = '', int $baseRevision = 0): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $tree = $this->treeService->updateNode($this->userId, $nodeId, $title, $contentMarkdown, $baseRevision);
+        } catch (UnexpectedValueException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (InvalidArgumentException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         }
 
         return new JSONResponse(['tree' => $tree]);

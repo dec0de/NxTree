@@ -170,6 +170,32 @@ final class TreeService {
     }
 
     /**
+     * @return array{filename: string, contents: string}|null
+     */
+    public function exportMtre(string $userId, int $treeId): ?array {
+        $tree = $this->getTree($userId, $treeId);
+        if ($tree === null) {
+            return null;
+        }
+
+        $roots = $this->nestedNodes($tree['nodes']);
+        $document = [
+            'version' => 1,
+            'root' => $roots[0] ?? [
+                'title' => $tree['title'] ?: 'Untitled tree',
+                'contentMarkdown' => '',
+                'children' => [],
+            ],
+        ];
+        $json = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+        return [
+            'filename' => $this->exportFilename((string)$tree['title']),
+            'contents' => $json . "\n",
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function updateNode(string $userId, int $nodeId, string $title, string $contentMarkdown, int $baseRevision): array {
@@ -617,6 +643,37 @@ final class TreeService {
         $result->closeCursor();
 
         return $operations;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $nodes
+     * @return array<int, array<string, mixed>>
+     */
+    private function nestedNodes(array $nodes, ?int $parentId = null): array {
+        $children = array_values(array_filter($nodes, static function (array $node) use ($parentId): bool {
+            return $node['parentId'] === $parentId;
+        }));
+        usort($children, static function (array $left, array $right): int {
+            return ((int)$left['sortOrder'] <=> (int)$right['sortOrder']) ?: ((int)$left['id'] <=> (int)$right['id']);
+        });
+
+        return array_map(function (array $node) use ($nodes): array {
+            return [
+                'title' => (string)$node['title'],
+                'contentMarkdown' => (string)$node['contentMarkdown'],
+                'children' => $this->nestedNodes($nodes, (int)$node['id']),
+            ];
+        }, $children);
+    }
+
+    private function exportFilename(string $title): string {
+        $base = trim(preg_replace('/[^A-Za-z0-9._-]+/', '-', $title) ?? '');
+        $base = trim($base, '.-_');
+        if ($base === '') {
+            $base = 'nxtree';
+        }
+
+        return $base . '.mtre';
     }
 
     /**

@@ -11,6 +11,7 @@
             <button type="button" id="nxtree-new-tree">Create New Tree</button>
             <label class="button" for="nxtree-import-file">Import .mtre</label>
             <input id="nxtree-import-file" type="file" accept=".mtre,application/json" />
+            <button type="button" id="nxtree-export-mtre">Export .mtre</button>
         </div>
         <div class="nxtree-tree-list-panel">
             <strong>Trees</strong>

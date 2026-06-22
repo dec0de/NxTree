@@ -29,6 +29,7 @@
         const fileMenu = document.getElementById('nxtree-file-menu');
         const newTreeButton = document.getElementById('nxtree-new-tree');
         const importFile = document.getElementById('nxtree-import-file');
+        const exportMtreButton = document.getElementById('nxtree-export-mtre');
         const treeList = document.getElementById('nxtree-tree-list');
         const treeEmpty = document.getElementById('nxtree-tree-empty');
         const treeEl = document.getElementById('nxtree-tree');
@@ -821,6 +822,16 @@
                 });
         }
 
+        function exportMtre() {
+            if (!currentTree) {
+                setStatus('Open a tree before exporting');
+                return;
+            }
+            window.location.href = endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/export/mtre');
+            fileMenu.hidden = true;
+            setStatus('Exporting .mtre...');
+        }
+
         function runSearch() {
             const query = searchInput.value.trim();
             searchResults.textContent = '';
@@ -877,6 +888,7 @@
         });
         newTreeButton.addEventListener('click', createTree);
         importFile.addEventListener('change', () => importTree(importFile.files && importFile.files.length > 0 ? importFile.files[0] : null));
+        exportMtreButton.addEventListener('click', exportMtre);
         editModeButton.addEventListener('click', () => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit'));
         titleEl.addEventListener('input', scheduleSelectedNodeSave);
         contentEl.addEventListener('input', scheduleSelectedNodeSave);

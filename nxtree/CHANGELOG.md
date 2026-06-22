@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+
+- Add `.mtre` export for database-backed trees.
+- Add a File menu export action for the currently open tree.
+- Preserve NxTree node order and Markdown content in exported MeeTree-compatible JSON.
+
 ## 0.7.0
 
 - Add polling sync for open trees using revisioned operation history.

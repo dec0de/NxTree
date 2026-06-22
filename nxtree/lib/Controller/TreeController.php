@@ -7,8 +7,10 @@ namespace OCA\NxTree\Controller;
 use InvalidArgumentException;
 use OCA\NxTree\Service\TreeService;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use UnexpectedValueException;
@@ -118,6 +120,29 @@ final class TreeController extends Controller {
         }
 
         return new JSONResponse($sync);
+    }
+
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function exportMtre(int $treeId): DataDownloadResponse|JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $export = $this->treeService->exportMtre($this->userId, $treeId);
+        if ($export === null) {
+            return new JSONResponse(['error' => 'Tree not found'], Http::STATUS_NOT_FOUND);
+        }
+
+        return new DataDownloadResponse(
+            $export['contents'],
+            $export['filename'],
+            'application/json; charset=utf-8'
+        );
     }
 
     /**

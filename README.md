@@ -1,8 +1,30 @@
 # NxTree
 
-NxTree is a planned Nextcloud app for collaborative hierarchical notes.
+NxTree is a Nextcloud app for collaborative hierarchical notes.
 
 NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's storage model. MeeTree remains the simple file-based `.mtre` editor. NxTree is designed database-first so multiple users can safely work in the same tree without silent overwrites.
+
+## Status
+
+NxTree currently provides a first runnable database-backed app version. You can enable the app, create database-backed trees, list them, open a tree, and view its stored root node in a MeeTree-inspired shell. Full node editing, sync, and import/export are planned next.
+
+## Installation
+
+Clone or unpack this repository into your Nextcloud custom apps directory, keeping the app folder name lowercase:
+
+```sh
+git clone https://github.com/dec0de/NxTree.git
+cp -R NxTree/nxtree /path/to/nextcloud/custom_apps/nxtree
+php occ app:enable nxtree
+```
+
+For a release archive, use:
+
+```sh
+./nxtree/scripts/package-release.sh
+```
+
+The archive is written to `build/nxtree-<version>.tar.gz` and contains a top-level `nxtree/` directory.
 
 ## Mission
 
@@ -25,13 +47,12 @@ NxTree should make it safe for multiple people to view and edit the same tree. T
 
 NxTree will use the Nextcloud database as its live source of truth.
 
-Planned tables:
+Initial tables:
 
 ```text
 nxtree_trees
 nxtree_nodes
 nxtree_operations
-nxtree_presence
 ```
 
 Core concepts:
@@ -39,7 +60,7 @@ Core concepts:
 - `nxtree_trees` stores tree title, owner, root node, revision, and timestamps.
 - `nxtree_nodes` stores parent, ordering, title, Markdown content, and soft-delete state.
 - `nxtree_operations` stores every mutation with revision and user id.
-- `nxtree_presence` stores who is viewing or editing a tree/node.
+- `nxtree_presence` will store who is viewing or editing a tree/node. This is planned after the first CRUD and sync endpoints.
 
 ## Operation Model
 
@@ -75,7 +96,7 @@ GET /sync?treeId=123&sinceRevision=42
 
 This gives NxTree safe multiuser editing before adding more advanced real-time infrastructure.
 
-## Planned Phases
+## Development Roadmap
 
 ### Phase 1: App Skeleton
 
@@ -85,6 +106,8 @@ This gives NxTree safe multiuser editing before adding more advanced real-time i
 - Basic app page, routes, controllers, services, CSS, and JavaScript.
 - Database migration scaffolding.
 - Release packaging script.
+- Create, list, and open database-backed trees.
+- Render root nodes in a first tree/editor UI shell.
 
 ### Phase 2: Database Tree Editor
 
@@ -143,6 +166,11 @@ NxTree should not reuse:
 - `.mtre` as live storage
 - last-save-wins behavior
 
-## Status
+## App Store Notes
 
-NxTree is at project start. This repository currently contains mission and architecture notes only.
+- App id: `nxtree`
+- Visible name: `NxTree`
+- PHP namespace: `OCA\NxTree`
+- License: `AGPL-3.0-or-later`
+- Current Nextcloud compatibility: 33
+- Release archive root folder: `nxtree/`

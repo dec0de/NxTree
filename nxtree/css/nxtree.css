@@ -1,0 +1,259 @@
+#content.app-nxtree {
+    min-height: 100%;
+}
+
+#app-content:has(.nxtree-app) {
+    width: 100%;
+}
+
+.nxtree-app {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) 1fr;
+    min-height: calc(100vh - 50px);
+    color: var(--color-main-text);
+    background: linear-gradient(135deg, var(--color-main-background) 0%, var(--color-background-hover) 100%);
+}
+
+.nxtree-sidebar {
+    border-right: 1px solid var(--color-border);
+    background: var(--color-main-background);
+    padding: 24px;
+}
+
+.nxtree-brand {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.nxtree-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: radial-gradient(circle at 50% 24%, var(--color-primary-element) 0 18%, transparent 19%),
+        radial-gradient(circle at 28% 74%, var(--color-primary-element) 0 16%, transparent 17%),
+        radial-gradient(circle at 72% 74%, var(--color-primary-element) 0 16%, transparent 17%),
+        linear-gradient(var(--color-primary-element), var(--color-primary-element));
+    background-size: 100% 100%, 100% 100%, 100% 100%, 4px 24px;
+    background-repeat: no-repeat;
+    background-position: center;
+    box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.nxtree-brand h2,
+.nxtree-hero h1,
+.nxtree-cards h2,
+.nxtree-panel h3 {
+    margin: 0;
+}
+
+.nxtree-brand p,
+.nxtree-hero p,
+.nxtree-cards p {
+    color: var(--color-text-maxcontrast);
+}
+
+.nxtree-primary {
+    width: 100%;
+    min-height: 44px;
+    margin-bottom: 24px;
+    border: none;
+    border-radius: var(--border-radius-large);
+    background: var(--color-primary-element);
+    color: var(--color-primary-element-text);
+    font-weight: 600;
+}
+
+.nxtree-tree-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.nxtree-tree-actions button {
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    background: var(--color-main-background);
+}
+
+.nxtree-tree-panel {
+    margin-top: 0;
+}
+
+.nxtree-node-panel {
+    margin-top: 16px;
+}
+
+.nxtree-empty {
+    color: var(--color-text-maxcontrast);
+}
+
+.nxtree-tree-list,
+.nxtree-node-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.nxtree-tree-item,
+.nxtree-node-item {
+    min-height: 38px;
+    justify-content: flex-start;
+    border: 1px solid transparent;
+    border-radius: var(--border-radius);
+    background: transparent;
+    text-align: left;
+    font-weight: 600;
+}
+
+.nxtree-node-item {
+    position: relative;
+    padding-left: 28px;
+    font-weight: 400;
+}
+
+.nxtree-node-item::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    width: 10px;
+    border-top: 1px solid var(--color-border-dark);
+}
+
+.nxtree-tree-item.active,
+.nxtree-node-item.active {
+    border-color: var(--color-primary-element);
+    background: var(--color-primary-light);
+}
+
+.nxtree-panel {
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    padding: 16px;
+    background: var(--color-background-hover);
+}
+
+.nxtree-panel ol {
+    margin: 12px 0 0 20px;
+    padding: 0;
+}
+
+.nxtree-panel li + li {
+    margin-top: 8px;
+}
+
+.nxtree-main {
+    padding: clamp(24px, 5vw, 64px);
+}
+
+.nxtree-hero {
+    max-width: 780px;
+}
+
+.nxtree-kicker {
+    margin: 0 0 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-primary-element) !important;
+}
+
+.nxtree-hero h1 {
+    max-width: 760px;
+    font-size: clamp(2rem, 5vw, 4rem);
+    line-height: 1.05;
+}
+
+.nxtree-hero p {
+    max-width: 680px;
+    font-size: 1.08rem;
+    line-height: 1.6;
+}
+
+.nxtree-status {
+    min-height: 1.5em;
+    font-weight: 600;
+}
+
+.nxtree-editor {
+    display: flex;
+    flex-direction: column;
+    min-height: 420px;
+    margin-top: 24px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    overflow: hidden;
+    background: var(--color-main-background);
+}
+
+.nxtree-editor-toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-background-hover);
+}
+
+.nxtree-editor-toolbar input {
+    flex: 1;
+    min-height: 38px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.nxtree-revision {
+    color: var(--color-text-maxcontrast);
+    white-space: nowrap;
+}
+
+#nxtree-node-content,
+.nxtree-node-preview {
+    flex: 1;
+    min-height: 320px;
+    padding: 18px;
+    border: none;
+    resize: none;
+    font: inherit;
+    line-height: 1.6;
+}
+
+.nxtree-node-preview p:first-child {
+    margin-top: 0;
+}
+
+.nxtree-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 40px;
+}
+
+.nxtree-cards article {
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    padding: 20px;
+    background: var(--color-main-background);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 900px) {
+    .nxtree-app {
+        grid-template-columns: 1fr;
+    }
+
+    .nxtree-sidebar {
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .nxtree-cards {
+        grid-template-columns: 1fr;
+    }
+}

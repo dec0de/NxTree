@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2
+
+- Add an in-app Nextcloud Files browser for `.mtre` import.
+- Add an in-app Nextcloud Files browser for selected-branch export.
+- Let users navigate folders before importing or choosing the export destination.
+- Let users choose the export filename before saving to Nextcloud Files.
+
 ## 0.9.1
 
 - Move the tree switcher from the permanent sidebar into the File menu.

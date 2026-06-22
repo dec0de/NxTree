@@ -9,6 +9,7 @@ return [
         ['name' => 'tree#create', 'url' => '/trees', 'verb' => 'POST'],
         ['name' => 'tree#import', 'url' => '/import', 'verb' => 'POST'],
         ['name' => 'tree#importFromFiles', 'url' => '/import/files', 'verb' => 'POST'],
+        ['name' => 'tree#browseFiles', 'url' => '/files/browse', 'verb' => 'GET'],
         ['name' => 'tree#show', 'url' => '/trees/{treeId}', 'verb' => 'GET'],
         ['name' => 'tree#sync', 'url' => '/trees/{treeId}/sync', 'verb' => 'GET'],
         ['name' => 'tree#exportMtre', 'url' => '/trees/{treeId}/export/mtre', 'verb' => 'GET'],

@@ -59,6 +59,16 @@
         const searchCase = document.getElementById('nxtree-search-case');
         const searchRegex = document.getElementById('nxtree-search-regex');
         const searchResults = document.getElementById('nxtree-search-results');
+        const filesPanel = document.getElementById('nxtree-files-panel');
+        const filesPanelHeader = filesPanel.querySelector('.nxtree-files-panel-header');
+        const filesTitle = document.getElementById('nxtree-files-title');
+        const filesClose = document.getElementById('nxtree-files-close');
+        const filesUp = document.getElementById('nxtree-files-up');
+        const filesPathEl = document.getElementById('nxtree-files-path');
+        const filesList = document.getElementById('nxtree-files-list');
+        const filesExportFields = document.getElementById('nxtree-files-export-fields');
+        const filesFilename = document.getElementById('nxtree-files-filename');
+        const filesSave = document.getElementById('nxtree-files-save');
 
         let trees = [];
         let selectedTreeId = null;
@@ -72,6 +82,9 @@
         let syncTimer = null;
         let isSyncing = false;
         let remoteChangePending = false;
+        let filesMode = 'import';
+        let filesCurrentPath = '/';
+        let filesParentPath = null;
         const collapsedIds = new Set();
 
         function setStatus(message) {
@@ -935,10 +948,10 @@
         }
 
         function importTreeFromFiles() {
-            const path = window.prompt('Nextcloud .mtre path to import', '/NxTree/tree.mtre');
-            if (path === null) {
-                return;
-            }
+            openFilesPanel('import', defaultExportFolder());
+        }
+
+        function importTreeFromFilesPath(path) {
             const body = new URLSearchParams();
             body.set('path', path);
             newTreeButton.disabled = true;
@@ -972,6 +985,7 @@
                     newTreeButton.disabled = false;
                     importFilesButton.disabled = false;
                     fileMenu.hidden = true;
+                    filesPanel.hidden = true;
                 });
         }
 
@@ -1011,16 +1025,15 @@
                 setStatus('Open a tree before exporting');
                 return;
             }
-            const folderPath = window.prompt('Nextcloud folder to save into', defaultExportFolder());
-            if (folderPath === null) {
-                return;
-            }
+            openFilesPanel('export', defaultExportFolder());
+        }
+
+        function suggestedExportFilename() {
             const node = selectedNode();
-            const suggestedFilename = ((node && node.title) || currentTree.title || 'nxtree').replace(/[^A-Za-z0-9._ -]+/g, '-') + '.mtre';
-            const filename = window.prompt('Export filename', suggestedFilename);
-            if (filename === null) {
-                return;
-            }
+            return ((node && node.title) || currentTree.title || 'nxtree').replace(/[^A-Za-z0-9._ -]+/g, '-') + '.mtre';
+        }
+
+        function exportMtreToFilesPath(folderPath, filename) {
             const body = new URLSearchParams();
             body.set('folderPath', folderPath);
             body.set('filename', filename);
@@ -1046,12 +1059,72 @@
                         refreshTreeSummary(currentTree);
                     }
                     fileMenu.hidden = true;
+                    filesPanel.hidden = true;
                     setStatus(`Saved selected branch to ${data.path}.`);
                 })
                 .catch(error => setStatus(error.message))
                 .finally(() => {
                     exportFilesButton.disabled = false;
                 });
+        }
+
+        function openFilesPanel(mode, path) {
+            filesMode = mode;
+            filesTitle.textContent = mode === 'export' ? 'Export To Nextcloud Files' : 'Import From Nextcloud Files';
+            filesExportFields.hidden = mode !== 'export';
+            if (mode === 'export') {
+                filesFilename.value = suggestedExportFilename();
+            }
+            filesPanel.hidden = false;
+            browseFiles(path || '/');
+        }
+
+        function browseFiles(path) {
+            setStatus('Loading Nextcloud Files...');
+            fetch(endpoint('/files/browse?path=' + encodeURIComponent(path || '/')), { headers: requestHeaders() })
+                .then(response => response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Could not browse Nextcloud Files');
+                    }
+                    return data;
+                }))
+                .then(data => {
+                    filesCurrentPath = data.path || '/';
+                    filesParentPath = data.parent || null;
+                    renderFilesList(Array.isArray(data.entries) ? data.entries : []);
+                    setStatus(filesMode === 'export' ? `Choose export folder: ${filesCurrentPath}` : `Choose .mtre file from ${filesCurrentPath}`);
+                })
+                .catch(error => setStatus(error.message));
+        }
+
+        function renderFilesList(entries) {
+            filesPathEl.textContent = filesCurrentPath;
+            filesUp.disabled = filesParentPath === null;
+            filesList.textContent = '';
+            if (entries.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'nxtree-empty';
+                empty.textContent = filesMode === 'export' ? 'No subfolders or .mtre files here.' : 'No folders or .mtre files here.';
+                filesList.appendChild(empty);
+                return;
+            }
+            entries.forEach(entry => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `nxtree-files-entry ${entry.type === 'folder' ? 'folder' : 'file'}`;
+                button.textContent = `${entry.type === 'folder' ? 'Folder: ' : 'File: '}${entry.name}`;
+                button.addEventListener('click', () => {
+                    if (entry.type === 'folder') {
+                        browseFiles(entry.path);
+                    } else if (filesMode === 'import') {
+                        importTreeFromFilesPath(entry.path);
+                    }
+                });
+                if (entry.type === 'file' && filesMode === 'export') {
+                    button.disabled = true;
+                }
+                filesList.appendChild(button);
+            });
         }
 
         function runSearch() {
@@ -1132,6 +1205,17 @@
         searchClose.addEventListener('click', () => {
             searchPanel.hidden = true;
         });
+        filesClose.addEventListener('click', () => {
+            filesPanel.hidden = true;
+        });
+        filesUp.addEventListener('click', () => {
+            if (filesParentPath !== null) {
+                browseFiles(filesParentPath);
+            }
+        });
+        filesSave.addEventListener('click', () => {
+            exportMtreToFilesPath(filesCurrentPath, filesFilename.value || suggestedExportFilename());
+        });
         searchInput.addEventListener('input', runSearch);
         [searchTitle, searchContent, searchCase, searchRegex].forEach(input => {
             input.addEventListener('change', runSearch);
@@ -1139,6 +1223,7 @@
 
         initDivider();
         makePanelDraggable(searchPanel, searchPanelHeader);
+        makePanelDraggable(filesPanel, filesPanelHeader);
         loadTrees();
         app.dataset.ready = 'true';
     });

@@ -59,4 +59,21 @@
             <div id="nxtree-search-results" class="nxtree-search-results"></div>
         </div>
     </section>
+    <section id="nxtree-files-panel" class="nxtree-files-panel" hidden>
+        <header class="nxtree-files-panel-header">
+            <strong id="nxtree-files-title">Nextcloud Files</strong>
+            <button type="button" id="nxtree-files-close" aria-label="Close files browser">Close</button>
+        </header>
+        <div class="nxtree-files-browser">
+            <div class="nxtree-files-path-row">
+                <button type="button" id="nxtree-files-up">Up</button>
+                <span id="nxtree-files-path">/</span>
+            </div>
+            <div id="nxtree-files-list" class="nxtree-files-list"></div>
+            <div id="nxtree-files-export-fields" class="nxtree-files-export-fields" hidden>
+                <label>Filename <input id="nxtree-files-filename" type="text" /></label>
+                <button type="button" id="nxtree-files-save">Save Here</button>
+            </div>
+        </div>
+    </section>
 </div>

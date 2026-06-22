@@ -144,6 +144,45 @@ final class TreeService {
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function browseFiles(string $userId, string $path): array {
+        $path = $this->normalisePath($path);
+        $folder = $path === '/' ? $this->getUserFolder($userId) : $this->getUserFolderAtPath($userId, $path);
+        $entries = [];
+
+        foreach ($folder->getDirectoryListing() as $node) {
+            if ($node instanceof Folder) {
+                $entries[] = [
+                    'name' => $node->getName(),
+                    'path' => $this->joinPath($path, $node->getName()),
+                    'type' => 'folder',
+                ];
+            } elseif ($node instanceof File && str_ends_with(strtolower($node->getName()), '.mtre')) {
+                $entries[] = [
+                    'name' => $node->getName(),
+                    'path' => $this->joinPath($path, $node->getName()),
+                    'type' => 'file',
+                ];
+            }
+        }
+
+        usort($entries, static function (array $left, array $right): int {
+            if ($left['type'] !== $right['type']) {
+                return $left['type'] === 'folder' ? -1 : 1;
+            }
+
+            return strcasecmp((string)$left['name'], (string)$right['name']);
+        });
+
+        return [
+            'path' => $path,
+            'parent' => $path === '/' ? null : $this->parentPath($path),
+            'entries' => $entries,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function getTree(string $userId, int $treeId): ?array {
@@ -858,6 +897,15 @@ final class TreeService {
         return $node;
     }
 
+    private function getUserFolderAtPath(string $userId, string $path): Folder {
+        $node = $this->getUserFolder($userId)->get(ltrim($path, '/'));
+        if (!$node instanceof Folder) {
+            throw new InvalidArgumentException('Nextcloud Files path is not a folder');
+        }
+
+        return $node;
+    }
+
     private function getOrCreateUserFolder(string $userId, string $path): Folder {
         $path = $this->normalisePath($path);
         $folder = $this->getUserFolder($userId);
@@ -890,6 +938,10 @@ final class TreeService {
         }
 
         return rtrim($this->normalisePath($folderPath), '/') . '/' . $candidate;
+    }
+
+    private function joinPath(string $parent, string $name): string {
+        return rtrim($this->normalisePath($parent), '/') . '/' . ltrim($name, '/');
     }
 
     /**

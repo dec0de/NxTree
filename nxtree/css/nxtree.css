@@ -348,7 +348,8 @@
     border-top: 1px solid var(--color-border);
 }
 
-.nxtree-search-panel {
+.nxtree-search-panel,
+.nxtree-files-panel {
     position: absolute;
     z-index: 10;
     top: 72px;
@@ -367,16 +368,24 @@
     box-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
 }
 
-.nxtree-search-panel.dragging {
+.nxtree-files-panel {
+    left: 30%;
+    height: min(560px, calc(100vh - 120px));
+}
+
+.nxtree-search-panel.dragging,
+.nxtree-files-panel.dragging {
     resize: none;
     user-select: none;
 }
 
-.nxtree-search-panel[hidden] {
+.nxtree-search-panel[hidden],
+.nxtree-files-panel[hidden] {
     display: none;
 }
 
-.nxtree-search-panel-header {
+.nxtree-search-panel-header,
+.nxtree-files-panel-header {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -387,13 +396,73 @@
     background: var(--color-background-hover);
 }
 
-.nxtree-search {
+.nxtree-search,
+.nxtree-files-browser {
     display: flex;
     flex: 1;
     flex-direction: column;
     gap: 8px;
     min-height: 0;
     padding: 12px;
+}
+
+.nxtree-files-path-row,
+.nxtree-files-export-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+#nxtree-files-path {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-maxcontrast);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nxtree-files-list {
+    flex: 1;
+    min-height: 160px;
+    overflow: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+}
+
+.nxtree-files-entry {
+    display: block;
+    width: 100%;
+    min-height: 34px;
+    padding: 6px 10px;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.nxtree-files-entry:hover:not(:disabled) {
+    background: var(--color-primary-light);
+}
+
+.nxtree-files-entry:disabled {
+    opacity: 0.55;
+}
+
+.nxtree-files-export-fields label {
+    display: flex;
+    flex: 1;
+    gap: 8px;
+    align-items: center;
+    min-width: 220px;
+}
+
+#nxtree-files-filename {
+    flex: 1;
+    min-width: 0;
 }
 
 #nxtree-search-input {

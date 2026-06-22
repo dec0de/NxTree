@@ -827,9 +827,10 @@
                 setStatus('Open a tree before exporting');
                 return;
             }
-            window.location.href = endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/export/mtre');
+            const params = selectedNodeId === null ? '' : '?nodeId=' + encodeURIComponent(selectedNodeId);
+            window.location.href = endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/export/mtre' + params);
             fileMenu.hidden = true;
-            setStatus('Exporting .mtre...');
+            setStatus('Exporting selected branch as .mtre...');
         }
 
         function runSearch() {

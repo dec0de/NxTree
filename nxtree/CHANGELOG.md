@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1
+
+- Export the currently selected branch and its descendants as `.mtre`.
+- Keep full-tree export available by selecting the root node.
+- Add File menu helper text explaining the selected-branch export behavior.
+
 ## 0.8.0
 
 - Add `.mtre` export for database-backed trees.

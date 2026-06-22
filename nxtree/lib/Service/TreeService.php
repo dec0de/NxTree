@@ -172,25 +172,25 @@ final class TreeService {
     /**
      * @return array{filename: string, contents: string}|null
      */
-    public function exportMtre(string $userId, int $treeId): ?array {
+    public function exportMtre(string $userId, int $treeId, ?int $nodeId = null): ?array {
         $tree = $this->getTree($userId, $treeId);
         if ($tree === null) {
             return null;
         }
 
-        $roots = $this->nestedNodes($tree['nodes']);
+        $root = $nodeId === null ? $this->rootNode($tree['nodes']) : $this->findLoadedNode($tree['nodes'], $nodeId);
+        if ($root === null) {
+            return null;
+        }
+
         $document = [
             'version' => 1,
-            'root' => $roots[0] ?? [
-                'title' => $tree['title'] ?: 'Untitled tree',
-                'contentMarkdown' => '',
-                'children' => [],
-            ],
+            'root' => $this->exportNode($tree['nodes'], $root),
         ];
         $json = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
         return [
-            'filename' => $this->exportFilename((string)$tree['title']),
+            'filename' => $this->exportFilename((string)$root['title']),
             'contents' => $json . "\n",
         ];
     }
@@ -664,6 +664,47 @@ final class TreeService {
                 'children' => $this->nestedNodes($nodes, (int)$node['id']),
             ];
         }, $children);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $nodes
+     * @return array<string, mixed>|null
+     */
+    private function rootNode(array $nodes): ?array {
+        foreach ($nodes as $node) {
+            if ($node['parentId'] === null) {
+                return $node;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $nodes
+     * @return array<string, mixed>|null
+     */
+    private function findLoadedNode(array $nodes, int $nodeId): ?array {
+        foreach ($nodes as $node) {
+            if ((int)$node['id'] === $nodeId) {
+                return $node;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $nodes
+     * @param array<string, mixed> $node
+     * @return array<string, mixed>
+     */
+    private function exportNode(array $nodes, array $node): array {
+        return [
+            'title' => (string)$node['title'],
+            'contentMarkdown' => (string)$node['contentMarkdown'],
+            'children' => $this->nestedNodes($nodes, (int)$node['id']),
+        ];
     }
 
     private function exportFilename(string $title): string {

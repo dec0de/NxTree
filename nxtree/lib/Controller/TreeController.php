@@ -128,12 +128,12 @@ final class TreeController extends Controller {
      */
     #[NoAdminRequired]
     #[NoCSRFRequired]
-    public function exportMtre(int $treeId): DataDownloadResponse|JSONResponse {
+    public function exportMtre(int $treeId, int $nodeId = 0): DataDownloadResponse|JSONResponse {
         if ($this->userId === null) {
             return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
         }
 
-        $export = $this->treeService->exportMtre($this->userId, $treeId);
+        $export = $this->treeService->exportMtre($this->userId, $treeId, $nodeId > 0 ? $nodeId : null);
         if ($export === null) {
             return new JSONResponse(['error' => 'Tree not found'], Http::STATUS_NOT_FOUND);
         }

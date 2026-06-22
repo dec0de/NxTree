@@ -521,6 +521,71 @@ final class TreeService {
         return $this->loadedTree($userId, $treeId);
     }
 
+    /**
+     * @param array<string, mixed> $snapshot
+     * @return array<string, mixed>
+     */
+    public function restoreStructure(string $userId, int $treeId, array $snapshot, int $baseRevision): array {
+        $nodes = isset($snapshot['nodes']) && is_array($snapshot['nodes']) ? $snapshot['nodes'] : [];
+        if ($nodes === []) {
+            throw new InvalidArgumentException('Undo snapshot contains no nodes');
+        }
+
+        $now = time();
+        $this->db->beginTransaction();
+
+        try {
+            $tree = $this->treeRow($treeId);
+            if ($tree === null || (string)$tree['owner_user_id'] !== $userId) {
+                throw new InvalidArgumentException('Tree not found');
+            }
+            if ($baseRevision !== (int)$tree['revision']) {
+                throw new UnexpectedValueException('Tree changed elsewhere. Reload before undoing.');
+            }
+
+            $snapshotNodes = [];
+            foreach ($nodes as $node) {
+                if (!is_array($node) || !isset($node['id'])) {
+                    continue;
+                }
+                $nodeId = (int)$node['id'];
+                $snapshotNodes[$nodeId] = $node;
+            }
+            if ($snapshotNodes === []) {
+                throw new InvalidArgumentException('Undo snapshot contains no valid nodes');
+            }
+
+            $rootNodeId = (int)($snapshot['rootNodeId'] ?? $tree['root_node_id']);
+            if (!isset($snapshotNodes[$rootNodeId])) {
+                throw new InvalidArgumentException('Undo snapshot does not contain the root node');
+            }
+
+            foreach ($this->nodeIdsIncludingDeleted($treeId) as $nodeId) {
+                if (!isset($snapshotNodes[$nodeId])) {
+                    $this->softDeleteNode($nodeId, $now);
+                }
+            }
+
+            foreach ($snapshotNodes as $nodeId => $node) {
+                $this->restoreSnapshotNode($treeId, $nodeId, $node, $now);
+            }
+
+            $newRevision = (int)$tree['revision'] + 1;
+            $this->updateTreeRevision($treeId, $newRevision, $now);
+            $this->updateTreeTitle($treeId, (string)($snapshotNodes[$rootNodeId]['title'] ?? 'Untitled tree'));
+            $this->insertOperation($treeId, $userId, $newRevision, 'undoStructure', [
+                'nodeCount' => count($snapshotNodes),
+            ], $now);
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+
+        return $this->loadedTree($userId, $treeId);
+    }
+
     private function insertTree(string $userId, string $title, int $now, ?string $sourceFilePath = null, ?string $lastExportFolderPath = null): int {
         $qb = $this->db->getQueryBuilder();
         $qb->insert('nxtree_trees')
@@ -662,6 +727,25 @@ final class TreeService {
         $qb->update('nxtree_nodes')
             ->set('deleted_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     */
+    private function restoreSnapshotNode(int $treeId, int $nodeId, array $node, int $now): void {
+        $parentId = array_key_exists('parentId', $node) && $node['parentId'] !== null ? (int)$node['parentId'] : null;
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_nodes')
+            ->set('parent_id', $parentId === null ? $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL) : $qb->createNamedParameter($parentId, IQueryBuilder::PARAM_INT))
+            ->set('sort_order', $qb->createNamedParameter((int)($node['sortOrder'] ?? 0), IQueryBuilder::PARAM_INT))
+            ->set('title', $qb->createNamedParameter(mb_substr(trim((string)($node['title'] ?? 'Untitled node')) ?: 'Untitled node', 0, 255)))
+            ->set('content_markdown', $qb->createNamedParameter((string)($node['contentMarkdown'] ?? '')))
+            ->set('version', $qb->createNamedParameter(((int)($node['version'] ?? 1)) + 1, IQueryBuilder::PARAM_INT))
+            ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->set('deleted_at', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->executeStatement();
     }
 
@@ -1008,6 +1092,25 @@ final class TreeService {
         $result->closeCursor();
 
         return $children;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function nodeIdsIncludingDeleted(int $treeId): array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id')
+            ->from('nxtree_nodes')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeQuery();
+
+        $ids = [];
+        while (($row = $result->fetch()) !== false) {
+            $ids[] = (int)$row['id'];
+        }
+        $result->closeCursor();
+
+        return $ids;
     }
 
     private function renumberChildren(int $treeId, ?int $parentId): void {

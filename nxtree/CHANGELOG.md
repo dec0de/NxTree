@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.5
+
+- Wire the Undo toolbar button for restoring deleted nodes and recent local structure changes.
+- Restore undo changes through revisioned database operations so undo stays multiuser-safe.
+- Improve Recent Trees row spacing so title and source metadata remain readable.
+
 ## 0.9.4
 
 - Rename the tree switcher to Recent Trees.

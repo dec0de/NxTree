@@ -28,6 +28,7 @@
             <button type="button" id="nxtree-sort-desc">Sort Z-A</button>
             <button type="button" id="nxtree-expand-branch" title="Expand selected branch">Expand</button>
             <button type="button" id="nxtree-collapse-branch" title="Collapse selected branch">Collapse</button>
+            <button type="button" id="nxtree-undo" class="nxtree-undo-button" title="Undo last tree structure change">↶ Undo</button>
         </div>
         <nav id="nxtree-tree" class="nxtree-tree" aria-label="NxTree document tree"></nav>
     </aside>

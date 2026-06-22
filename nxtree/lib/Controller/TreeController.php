@@ -301,4 +301,29 @@ final class TreeController extends Controller {
 
         return new JSONResponse(['tree' => $tree]);
     }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
+    public function restoreStructure(int $treeId, string $snapshot = '', int $baseRevision = 0): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $decoded = json_decode($snapshot, true);
+        if (!is_array($decoded)) {
+            return new JSONResponse(['error' => 'Invalid undo snapshot'], Http::STATUS_BAD_REQUEST);
+        }
+
+        try {
+            $tree = $this->treeService->restoreStructure($this->userId, $treeId, $decoded, $baseRevision);
+        } catch (UnexpectedValueException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (InvalidArgumentException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
+        return new JSONResponse(['tree' => $tree]);
+    }
 }

@@ -14,6 +14,7 @@ return [
         ['name' => 'tree#sync', 'url' => '/trees/{treeId}/sync', 'verb' => 'GET'],
         ['name' => 'tree#exportMtre', 'url' => '/trees/{treeId}/export/mtre', 'verb' => 'GET'],
         ['name' => 'tree#exportMtreToFiles', 'url' => '/trees/{treeId}/export/files', 'verb' => 'POST'],
+        ['name' => 'tree#restoreStructure', 'url' => '/trees/{treeId}/restore', 'verb' => 'POST'],
         ['name' => 'tree#updateNode', 'url' => '/nodes/{nodeId}', 'verb' => 'PUT'],
         ['name' => 'tree#addNode', 'url' => '/nodes/{parentId}/children', 'verb' => 'POST'],
         ['name' => 'tree#deleteNode', 'url' => '/nodes/{nodeId}/delete', 'verb' => 'POST'],

@@ -49,6 +49,7 @@
         const sortDescButton = document.getElementById('nxtree-sort-desc');
         const expandButton = document.getElementById('nxtree-expand-branch');
         const collapseButton = document.getElementById('nxtree-collapse-branch');
+        const undoButton = document.getElementById('nxtree-undo');
         const searchToggle = document.getElementById('nxtree-search-toggle');
         const searchPanel = document.getElementById('nxtree-search-panel');
         const searchPanelHeader = searchPanel.querySelector('.nxtree-search-panel-header');
@@ -85,6 +86,7 @@
         let filesMode = 'import';
         let filesCurrentPath = '/';
         let filesParentPath = null;
+        const undoStack = [];
         const collapsedIds = new Set();
 
         function setStatus(message) {
@@ -708,6 +710,56 @@
             runSearch();
         }
 
+        function pushUndoState() {
+            if (!currentTree) {
+                return;
+            }
+            updateSelectedNodeFromEditor();
+            undoStack.push({
+                tree: JSON.parse(JSON.stringify(currentTree)),
+                selectedNodeId,
+            });
+            if (undoStack.length > 50) {
+                undoStack.shift();
+            }
+        }
+
+        function clearUndoState() {
+            undoStack.length = 0;
+        }
+
+        function undoLastStructureChange() {
+            if (!currentTree) {
+                setStatus('No tree loaded');
+                return;
+            }
+
+            const previous = undoStack[undoStack.length - 1];
+            if (!previous) {
+                setStatus('Nothing to undo');
+                return;
+            }
+
+            const body = new URLSearchParams();
+            body.set('baseRevision', String(currentTree.revision));
+            body.set('snapshot', JSON.stringify(previous.tree));
+            setStatus('Undoing last tree change...');
+            fetch(endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/restore'), {
+                method: 'POST',
+                headers: requestHeaders(),
+                body,
+            }).then(response => response.json().then(data => {
+                if (!response.ok) {
+                    throw new Error(data.error || 'Could not undo tree change');
+                }
+                return data;
+            })).then(data => {
+                undoStack.pop();
+                applyTreeResult(data, previous.selectedNodeId);
+                setStatus('Undid last tree change');
+            }).catch(error => setStatus(error.message));
+        }
+
         function startTreeSync() {
             if (syncTimer) {
                 clearInterval(syncTimer);
@@ -738,6 +790,7 @@
                         setStatus('Tree changed elsewhere. Save or reload before continuing.');
                         return;
                     }
+                    clearUndoState();
                     applyTreeResult(data, selectedNodeId);
                     setStatus('Loaded remote tree changes');
                 })
@@ -773,6 +826,7 @@
                 setStatus('Select a parent node first');
                 return;
             }
+            pushUndoState();
             postOperation('/nodes/' + encodeURIComponent(parent.id) + '/children', new URLSearchParams())
                 .then(data => {
                     const newNode = data.tree.nodes.reduce((latest, node) => latest === null || node.id > latest.id ? node : latest, null);
@@ -783,7 +837,10 @@
                     titleEl.select();
                     setStatus('Added node');
                 })
-                .catch(error => setStatus(error.message));
+                .catch(error => {
+                    undoStack.pop();
+                    setStatus(error.message);
+                });
         }
 
         function deleteNode() {
@@ -799,6 +856,7 @@
             if ((node.children || []).length > 0 && !window.confirm('Delete this node and all child nodes?')) {
                 return;
             }
+            pushUndoState();
             const nextSelection = node.parentId || currentTree.rootNodeId;
             postOperation('/nodes/' + encodeURIComponent(node.id) + '/delete', new URLSearchParams())
                 .then(data => {
@@ -806,7 +864,10 @@
                     applyTreeResult(data, nextSelection);
                     setStatus('Deleted node');
                 })
-                .catch(error => setStatus(error.message));
+                .catch(error => {
+                    undoStack.pop();
+                    setStatus(error.message);
+                });
         }
 
         function sortChildren(direction) {
@@ -817,18 +878,23 @@
             }
             const body = new URLSearchParams();
             body.set('direction', direction);
+            pushUndoState();
             postOperation('/nodes/' + encodeURIComponent(node.id) + '/sort', body)
                 .then(data => {
                     applyTreeResult(data, node.id);
                     setStatus(direction === 'desc' ? 'Sorted branch Z-A' : 'Sorted branch A-Z');
                 })
-                .catch(error => setStatus(error.message));
+                .catch(error => {
+                    undoStack.pop();
+                    setStatus(error.message);
+                });
         }
 
         function moveNode(nodeId, targetId, mode) {
             const body = new URLSearchParams();
             body.set('targetId', String(targetId));
             body.set('mode', mode);
+            pushUndoState();
             postOperation('/nodes/' + encodeURIComponent(nodeId) + '/move', body)
                 .then(data => {
                     if (mode === 'inside') {
@@ -837,7 +903,10 @@
                     applyTreeResult(data, nodeId);
                     setStatus('Moved node');
                 })
-                .catch(error => setStatus(error.message));
+                .catch(error => {
+                    undoStack.pop();
+                    setStatus(error.message);
+                });
         }
 
         function expandSelectedBranch() {
@@ -874,6 +943,7 @@
                 .then(data => {
                     currentTree = data.tree;
                     selectedNodeId = currentTree.rootNodeId;
+                    clearUndoState();
                     collapsedIds.clear();
                     remoteChangePending = false;
                     revisionEl.textContent = `Revision ${currentTree.revision}`;
@@ -1231,6 +1301,7 @@
         sortDescButton.addEventListener('click', () => sortChildren('desc'));
         expandButton.addEventListener('click', expandSelectedBranch);
         collapseButton.addEventListener('click', collapseSelectedBranch);
+        undoButton.addEventListener('click', undoLastStructureChange);
         searchToggle.addEventListener('click', () => {
             searchPanel.hidden = !searchPanel.hidden;
             if (!searchPanel.hidden) {

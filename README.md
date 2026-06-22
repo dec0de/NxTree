@@ -91,7 +91,7 @@ The server applies operations transactionally:
 Clients poll for remote changes:
 
 ```text
-GET /sync?treeId=123&sinceRevision=42
+GET /apps/nxtree/trees/123/sync?sinceRevision=42
 ```
 
 This gives NxTree safe multiuser editing before adding more advanced real-time infrastructure.
@@ -131,6 +131,7 @@ This gives NxTree safe multiuser editing before adding more advanced real-time i
 - Clients poll for operations after their last known revision.
 - Other users' changes appear without a full reload.
 - Preserve local selection and editor state where possible.
+- Defer applying remote snapshots while an autosave is pending or in flight.
 
 ### Phase 5: Presence And Soft Locks
 

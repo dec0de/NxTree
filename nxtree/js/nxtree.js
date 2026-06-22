@@ -66,6 +66,9 @@
         let saveTimer = null;
         let isSaving = false;
         let saveQueued = false;
+        let syncTimer = null;
+        let isSyncing = false;
+        let remoteChangePending = false;
         const collapsedIds = new Set();
 
         function setStatus(message) {
@@ -440,6 +443,10 @@
             saveTimer = setTimeout(saveSelectedNode, 650);
         }
 
+        function hasPendingLocalEdit() {
+            return saveTimer !== null || isSaving || saveQueued;
+        }
+
         function updateSelectedNodeFromEditor() {
             if (!currentTree || !Array.isArray(currentTree.nodes) || selectedNodeId === null) {
                 return null;
@@ -518,12 +525,16 @@
                     if (saveQueued) {
                         saveQueued = false;
                         markDirty();
+                    } else if (remoteChangePending) {
+                        remoteChangePending = false;
+                        pollTreeSync();
                     }
                 });
         }
 
         function applyTreeResult(data, preferredSelection) {
             currentTree = data.tree;
+            remoteChangePending = false;
             if (preferredSelection && findNode(preferredSelection)) {
                 selectedNodeId = preferredSelection;
             } else if (!findNode(selectedNodeId)) {
@@ -534,6 +545,47 @@
             renderTree();
             renderSelectedNode();
             runSearch();
+        }
+
+        function startTreeSync() {
+            if (syncTimer) {
+                clearInterval(syncTimer);
+            }
+            syncTimer = window.setInterval(pollTreeSync, 5000);
+        }
+
+        function pollTreeSync() {
+            if (!currentTree || isSyncing) {
+                return;
+            }
+            const treeId = currentTree.id;
+            const revision = currentTree.revision || 0;
+            isSyncing = true;
+            fetch(endpoint('/trees/' + encodeURIComponent(treeId) + '/sync?sinceRevision=' + encodeURIComponent(revision)), { headers: requestHeaders() })
+                .then(response => response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Could not sync tree');
+                    }
+                    return data;
+                }))
+                .then(data => {
+                    if (!currentTree || String(currentTree.id) !== String(treeId) || !data.changed) {
+                        return;
+                    }
+                    if (hasPendingLocalEdit()) {
+                        remoteChangePending = true;
+                        setStatus('Tree changed elsewhere. Save or reload before continuing.');
+                        return;
+                    }
+                    applyTreeResult(data, selectedNodeId);
+                    setStatus('Loaded remote tree changes');
+                })
+                .catch(error => {
+                    setStatus(error.message);
+                })
+                .finally(() => {
+                    isSyncing = false;
+                });
         }
 
         function postOperation(path, body) {
@@ -662,11 +714,13 @@
                     currentTree = data.tree;
                     selectedNodeId = currentTree.rootNodeId;
                     collapsedIds.clear();
+                    remoteChangePending = false;
                     revisionEl.textContent = `Revision ${currentTree.revision}`;
                     setSaveState('Saved');
                     renderTree();
                     setEditorMode('preview');
                     runSearch();
+                    startTreeSync();
                     setStatus(`Loaded ${currentTree.title || 'Untitled tree'} (${currentTree.nodes.length} node(s)).`);
                 })
                 .catch(error => setStatus(error.message));
@@ -750,10 +804,12 @@
                     currentTree = data.tree;
                     selectedNodeId = currentTree.rootNodeId;
                     collapsedIds.clear();
+                    remoteChangePending = false;
                     revisionEl.textContent = `Revision ${currentTree.revision}`;
                     setSaveState('Saved');
                     renderTree();
                     setEditorMode('preview');
+                    startTreeSync();
                     setStatus(`Imported ${data.tree.nodes.length} node(s) from ${file.name}.`);
                 })
                 .catch(error => setStatus(error.message))

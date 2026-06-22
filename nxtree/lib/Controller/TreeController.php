@@ -107,6 +107,23 @@ final class TreeController extends Controller {
      * @NoAdminRequired
      */
     #[NoAdminRequired]
+    public function sync(int $treeId, int $sinceRevision = 0): JSONResponse {
+        if ($this->userId === null) {
+            return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $sync = $this->treeService->syncTree($this->userId, $treeId, $sinceRevision);
+        if ($sync === null) {
+            return new JSONResponse(['error' => 'Tree not found'], Http::STATUS_NOT_FOUND);
+        }
+
+        return new JSONResponse($sync);
+    }
+
+    /**
+     * @NoAdminRequired
+     */
+    #[NoAdminRequired]
     public function updateNode(int $nodeId, string $title = '', string $contentMarkdown = '', int $baseRevision = 0): JSONResponse {
         if ($this->userId === null) {
             return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);

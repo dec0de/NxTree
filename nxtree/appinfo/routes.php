@@ -9,6 +9,7 @@ return [
         ['name' => 'tree#create', 'url' => '/trees', 'verb' => 'POST'],
         ['name' => 'tree#import', 'url' => '/import', 'verb' => 'POST'],
         ['name' => 'tree#show', 'url' => '/trees/{treeId}', 'verb' => 'GET'],
+        ['name' => 'tree#sync', 'url' => '/trees/{treeId}/sync', 'verb' => 'GET'],
         ['name' => 'tree#updateNode', 'url' => '/nodes/{nodeId}', 'verb' => 'PUT'],
         ['name' => 'tree#addNode', 'url' => '/nodes/{parentId}/children', 'verb' => 'POST'],
         ['name' => 'tree#deleteNode', 'url' => '/nodes/{nodeId}/delete', 'verb' => 'POST'],

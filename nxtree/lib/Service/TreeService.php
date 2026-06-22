@@ -144,6 +144,32 @@ final class TreeService {
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    public function syncTree(string $userId, int $treeId, int $sinceRevision): ?array {
+        $tree = $this->getTree($userId, $treeId);
+        if ($tree === null) {
+            return null;
+        }
+
+        $currentRevision = (int)$tree['revision'];
+        if ($sinceRevision >= $currentRevision) {
+            return [
+                'changed' => false,
+                'revision' => $currentRevision,
+                'operations' => [],
+            ];
+        }
+
+        return [
+            'changed' => true,
+            'revision' => $currentRevision,
+            'operations' => $this->listOperationsAfter($treeId, max(0, $sinceRevision)),
+            'tree' => $tree,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function updateNode(string $userId, int $nodeId, string $title, string $contentMarkdown, int $baseRevision): array {
@@ -563,6 +589,34 @@ final class TreeService {
         $result->closeCursor();
 
         return $nodes;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function listOperationsAfter(int $treeId, int $revision): array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('revision', 'user_id', 'type', 'payload_json', 'created_at')
+            ->from('nxtree_operations')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->gt('revision', $qb->createNamedParameter($revision, IQueryBuilder::PARAM_INT)))
+            ->orderBy('revision', 'ASC')
+            ->executeQuery();
+
+        $operations = [];
+        while (($row = $result->fetch()) !== false) {
+            $payload = json_decode((string)$row['payload_json'], true);
+            $operations[] = [
+                'revision' => (int)$row['revision'],
+                'userId' => (string)$row['user_id'],
+                'type' => (string)$row['type'],
+                'payload' => is_array($payload) ? $payload : [],
+                'createdAt' => (int)$row['created_at'],
+            ];
+        }
+        $result->closeCursor();
+
+        return $operations;
     }
 
     /**

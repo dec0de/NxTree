@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- Add polling sync for open trees using revisioned operation history.
+- Add a tree-scoped sync endpoint that returns operations and a refreshed tree snapshot when revisions advance.
+- Preserve selection and collapsed state while applying remote changes where possible.
+- Avoid overwriting active local autosaves when remote changes arrive.
+
 ## 0.6.4
 
 - Re-release the white Nextcloud navigation icon foreground so online installs can update from earlier icon builds.

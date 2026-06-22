@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Use `currentColor` for the app navigation icon so Nextcloud can theme it correctly.
+
 ## 0.3.0
 
 - Add `.mtre` import from local uploads.

@@ -15,11 +15,11 @@
             <input id="nxtree-import-file" type="file" accept=".mtre,application/json" />
             <button type="button" id="nxtree-export-mtre" title="Download the selected branch and its children">Download .mtre</button>
             <small>Files export defaults to imported folder or /NxTree</small>
-        </div>
-        <div class="nxtree-tree-list-panel">
-            <strong>Trees</strong>
-            <p id="nxtree-tree-empty" class="nxtree-empty">No trees yet.</p>
-            <nav id="nxtree-tree-list" class="nxtree-tree-list" aria-label="NxTree trees"></nav>
+            <div class="nxtree-tree-list-panel">
+                <strong>Trees</strong>
+                <p id="nxtree-tree-empty" class="nxtree-empty">No trees yet.</p>
+                <nav id="nxtree-tree-list" class="nxtree-tree-list" aria-label="NxTree trees"></nav>
+            </div>
         </div>
         <div class="nxtree-tree-actions" aria-label="Tree actions">
             <button type="button" id="nxtree-add-node" title="New child node">+ Node</button>

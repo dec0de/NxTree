@@ -99,7 +99,8 @@
 }
 
 .nxtree-tree-list-panel {
-    margin: 4px 12px 8px;
+    flex: 1 0 100%;
+    margin: 2px 0 0;
     padding: 10px;
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius-large);
@@ -115,7 +116,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    max-height: 120px;
+    max-height: 96px;
     margin-top: 8px;
     overflow: auto;
 }

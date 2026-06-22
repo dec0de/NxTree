@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1
+
+- Move the tree switcher from the permanent sidebar into the File menu.
+- Reclaim left-pane space for branch actions and the loaded tree outline.
+
 ## 0.9.0
 
 - Add Nextcloud Files based `.mtre` import by server-side path.

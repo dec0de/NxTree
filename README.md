@@ -6,7 +6,7 @@ NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's
 
 ## Status
 
-NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, open and switch trees from the File menu, import `.mtre` files from an in-app Nextcloud Files browser or browser upload, export the selected branch with a Nextcloud Files destination/filename browser or browser download, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, and receive polling-based remote updates.
+NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, open and switch trees from the File menu, import `.mtre` files from an in-app Nextcloud Files browser or browser upload, export the selected branch with a Nextcloud Files destination/filename browser or browser download, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, and receive polling-based remote updates. The Files browser starts at a known source folder when available and otherwise falls back to the Files root.
 
 ## Installation
 

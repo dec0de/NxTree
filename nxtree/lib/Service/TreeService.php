@@ -146,9 +146,14 @@ final class TreeService {
     /**
      * @return array<string, mixed>
      */
-    public function browseFiles(string $userId, string $path): array {
+    public function browseFiles(string $userId, string $path, bool $createFolder = false): array {
         $path = $this->normalisePath($path);
-        $folder = $path === '/' ? $this->getUserFolder($userId) : $this->getUserFolderAtPath($userId, $path);
+        try {
+            $folder = $createFolder ? $this->getOrCreateUserFolder($userId, $path) : ($path === '/' ? $this->getUserFolder($userId) : $this->getUserFolderAtPath($userId, $path));
+        } catch (NotFoundException) {
+            $path = '/';
+            $folder = $this->getUserFolder($userId);
+        }
         $entries = [];
 
         foreach ($folder->getDirectoryListing() as $node) {

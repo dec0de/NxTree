@@ -112,13 +112,13 @@ final class TreeController extends Controller {
      */
     #[NoAdminRequired]
     #[NoCSRFRequired]
-    public function browseFiles(string $path = '/'): JSONResponse {
+    public function browseFiles(string $path = '/', int $createFolder = 0): JSONResponse {
         if ($this->userId === null) {
             return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
         }
 
         try {
-            return new JSONResponse($this->treeService->browseFiles($this->userId, $path));
+            return new JSONResponse($this->treeService->browseFiles($this->userId, $path, $createFolder === 1));
         } catch (\Throwable $e) {
             return new JSONResponse(['error' => $e->getMessage() ?: 'Could not browse Nextcloud Files'], Http::STATUS_BAD_REQUEST);
         }

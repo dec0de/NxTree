@@ -948,7 +948,7 @@
         }
 
         function importTreeFromFiles() {
-            openFilesPanel('import', defaultExportFolder());
+            openFilesPanel('import', currentTree && currentTree.sourceFilePath ? parentPath(currentTree.sourceFilePath) : '/');
         }
 
         function importTreeFromFilesPath(path) {
@@ -1076,12 +1076,13 @@
                 filesFilename.value = suggestedExportFilename();
             }
             filesPanel.hidden = false;
-            browseFiles(path || '/');
+            browseFiles(path || '/', mode === 'export');
         }
 
-        function browseFiles(path) {
+        function browseFiles(path, createFolder) {
             setStatus('Loading Nextcloud Files...');
-            fetch(endpoint('/files/browse?path=' + encodeURIComponent(path || '/')), { headers: requestHeaders() })
+            const query = '?path=' + encodeURIComponent(path || '/') + (createFolder ? '&createFolder=1' : '');
+            fetch(endpoint('/files/browse' + query), { headers: requestHeaders() })
                 .then(response => response.json().then(data => {
                     if (!response.ok) {
                         throw new Error(data.error || 'Could not browse Nextcloud Files');
@@ -1115,7 +1116,7 @@
                 button.textContent = `${entry.type === 'folder' ? 'Folder: ' : 'File: '}${entry.name}`;
                 button.addEventListener('click', () => {
                     if (entry.type === 'folder') {
-                        browseFiles(entry.path);
+                        browseFiles(entry.path, false);
                     } else if (filesMode === 'import') {
                         importTreeFromFilesPath(entry.path);
                     }
@@ -1210,7 +1211,7 @@
         });
         filesUp.addEventListener('click', () => {
             if (filesParentPath !== null) {
-                browseFiles(filesParentPath);
+                browseFiles(filesParentPath, false);
             }
         });
         filesSave.addEventListener('click', () => {

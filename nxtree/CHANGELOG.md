@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.3
+
+- Start Files import browsing at the Nextcloud Files root unless the current tree has a known source folder.
+- Create the default export folder when opening the export browser if needed.
+- Fall back to the Files root when a requested browser folder does not exist.
+
 ## 0.9.2
 
 - Add an in-app Nextcloud Files browser for `.mtre` import.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.4
+
+- Re-release the white Nextcloud navigation icon foreground so online installs can update from earlier icon builds.
+
 ## 0.6.3
 
 - Use explicit white foreground for the Nextcloud navigation icon to match MeeTree's working app-bar behavior.

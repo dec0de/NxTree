@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+vendor/
+node_modules/
+
+# Build / release artifacts
+build/
+dist/
+*.tar.gz
+*.zip
+
+# Nextcloud app signing certificates / private material
+*.key
+*.csr
+*.crt
+*.pem
+RELEASE.local.md
+
+# Logs / temporary files
+*.log
+tmp/
+temp/
+.cache/
+
+# Test / coverage output
+.phpunit.result.cache
+coverage/
+.clover.xml

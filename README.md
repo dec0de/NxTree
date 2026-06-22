@@ -1,0 +1,148 @@
+# NxTree
+
+NxTree is a planned Nextcloud app for collaborative hierarchical notes.
+
+NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's storage model. MeeTree remains the simple file-based `.mtre` editor. NxTree is designed database-first so multiple users can safely work in the same tree without silent overwrites.
+
+## Mission
+
+Build a true multiuser tree-note app for Nextcloud that feels as direct as a classic TreePad/Jreepad-style outliner, while respecting Nextcloud users, sharing, permissions, backups, and deployment constraints.
+
+NxTree should make it safe for multiple people to view and edit the same tree. The first goal is multiuser safety and visible synchronization, not Google Docs-style character-by-character editing on day one.
+
+## Product Principles
+
+- Database-backed live storage, not one shared JSON file.
+- `.mtre` import/export for portability and backups.
+- Revisioned operations to prevent silent overwrites.
+- Polling-based synchronization first; real-time push can come later.
+- Node-level Markdown content with preview/edit toggle.
+- Clear conflict handling instead of hidden last-save-wins behavior.
+- Presence and soft locks before full CRDT text editing.
+- MeeTree remains stable and simple; NxTree can evolve as the collaborative app.
+
+## Initial Architecture
+
+NxTree will use the Nextcloud database as its live source of truth.
+
+Planned tables:
+
+```text
+nxtree_trees
+nxtree_nodes
+nxtree_operations
+nxtree_presence
+```
+
+Core concepts:
+
+- `nxtree_trees` stores tree title, owner, root node, revision, and timestamps.
+- `nxtree_nodes` stores parent, ordering, title, Markdown content, and soft-delete state.
+- `nxtree_operations` stores every mutation with revision and user id.
+- `nxtree_presence` stores who is viewing or editing a tree/node.
+
+## Operation Model
+
+Clients send changes as operations against a known base revision:
+
+```json
+{
+  "treeId": "123",
+  "baseRevision": 42,
+  "type": "renameNode",
+  "nodeId": "abc",
+  "payload": {
+    "title": "New title"
+  }
+}
+```
+
+The server applies operations transactionally:
+
+- validate permissions
+- check current tree revision
+- reject conflicting stale operations
+- apply the mutation
+- increment tree revision
+- store the operation
+- return the new revision
+
+Clients poll for remote changes:
+
+```text
+GET /sync?treeId=123&sinceRevision=42
+```
+
+This gives NxTree safe multiuser editing before adding more advanced real-time infrastructure.
+
+## Planned Phases
+
+### Phase 1: App Skeleton
+
+- Nextcloud app id: `nxtree`
+- Visible name: `NxTree`
+- PHP namespace: `OCA\NxTree`
+- Basic app page, routes, controllers, services, CSS, and JavaScript.
+- Database migration scaffolding.
+- Release packaging script.
+
+### Phase 2: Database Tree Editor
+
+- Create tree.
+- Add, delete, rename, move, and sort nodes.
+- Edit Markdown node content.
+- Preview/edit toggle.
+- Search titles and content.
+
+### Phase 3: Revisioned Multiuser Safety
+
+- All mutations use revisioned operations.
+- No silent overwrites.
+- Clear stale-operation and conflict messages.
+
+### Phase 4: Polling Sync
+
+- Clients poll for operations after their last known revision.
+- Other users' changes appear without a full reload.
+- Preserve local selection and editor state where possible.
+
+### Phase 5: Presence And Soft Locks
+
+- Show who is viewing/editing a tree or node.
+- Add heartbeat endpoint.
+- Optional node-level edit locks for Markdown content.
+
+### Phase 6: Import/Export
+
+- Import `.mtre` into database-backed trees.
+- Export database trees to `.mtre`.
+- Reuse MeeTree HJT/CTD codecs where practical.
+
+### Phase 7: Real-Time Text Collaboration
+
+- Evaluate CRDT/Yjs-style editing for Markdown node content.
+- Keep this optional until the operation model is stable.
+
+## Reuse From MeeTree
+
+NxTree can reuse or adapt:
+
+- split tree/editor layout
+- tree rendering patterns
+- drag/drop UX
+- Markdown rendering and preview/edit toggle ideas
+- search UI patterns
+- HJT and CTD codecs
+- packaging conventions
+
+NxTree should not reuse:
+
+- whole-document autosave
+- `activeFile.path`
+- `/MeeTree/state.json`
+- `.mtre` as live storage
+- last-save-wins behavior
+
+## Status
+
+NxTree is at project start. This repository currently contains mission and architecture notes only.

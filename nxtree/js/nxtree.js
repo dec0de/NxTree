@@ -48,8 +48,13 @@
         const collapseButton = document.getElementById('nxtree-collapse-branch');
         const searchToggle = document.getElementById('nxtree-search-toggle');
         const searchPanel = document.getElementById('nxtree-search-panel');
+        const searchPanelHeader = searchPanel.querySelector('.nxtree-search-panel-header');
         const searchClose = document.getElementById('nxtree-search-close');
         const searchInput = document.getElementById('nxtree-search-input');
+        const searchTitle = document.getElementById('nxtree-search-title');
+        const searchContent = document.getElementById('nxtree-search-content');
+        const searchCase = document.getElementById('nxtree-search-case');
+        const searchRegex = document.getElementById('nxtree-search-regex');
         const searchResults = document.getElementById('nxtree-search-results');
 
         let trees = [];
@@ -111,6 +116,41 @@
             });
         }
 
+        function makePanelDraggable(panel, header) {
+            header.addEventListener('pointerdown', event => {
+                if (event.target.closest('button')) {
+                    return;
+                }
+                const rect = panel.getBoundingClientRect();
+                const offsetX = event.clientX - rect.left;
+                const offsetY = event.clientY - rect.top;
+                panel.classList.add('dragging');
+                header.setPointerCapture(event.pointerId);
+
+                function onMove(moveEvent) {
+                    const maxLeft = window.innerWidth - panel.offsetWidth - 8;
+                    const maxTop = window.innerHeight - panel.offsetHeight - 8;
+                    const left = Math.min(Math.max(8, moveEvent.clientX - offsetX), Math.max(8, maxLeft));
+                    const top = Math.min(Math.max(8, moveEvent.clientY - offsetY), Math.max(8, maxTop));
+                    panel.style.left = `${left}px`;
+                    panel.style.top = `${top}px`;
+                    panel.style.right = 'auto';
+                }
+
+                function onUp(upEvent) {
+                    panel.classList.remove('dragging');
+                    header.releasePointerCapture(upEvent.pointerId);
+                    header.removeEventListener('pointermove', onMove);
+                    header.removeEventListener('pointerup', onUp);
+                    header.removeEventListener('pointercancel', onUp);
+                }
+
+                header.addEventListener('pointermove', onMove);
+                header.addEventListener('pointerup', onUp);
+                header.addEventListener('pointercancel', onUp);
+            });
+        }
+
         function markdownToHtml(markdown) {
             const escaped = String(markdown || '')
                 .replace(/&/g, '&amp;')
@@ -158,6 +198,20 @@
                     return node;
                 }
                 const found = findNode(id, node.children || []);
+                if (found) {
+                    return found;
+                }
+            }
+            return null;
+        }
+
+        function findPath(id, nodes = buildNodeTree(), path = []) {
+            for (const node of nodes) {
+                const nextPath = path.concat(node.title || 'Untitled node');
+                if (String(node.id) === String(id)) {
+                    return nextPath;
+                }
+                const found = findPath(id, node.children || [], nextPath);
                 if (found) {
                     return found;
                 }
@@ -712,16 +766,32 @@
         }
 
         function runSearch() {
-            const query = searchInput.value.trim().toLowerCase();
+            const query = searchInput.value.trim();
             searchResults.textContent = '';
             if (!query || !currentTree || !Array.isArray(currentTree.nodes)) {
                 return;
             }
-            currentTree.nodes.filter(node => `${node.title || ''}\n${node.contentMarkdown || ''}`.toLowerCase().includes(query)).forEach(node => {
+            const options = {
+                titles: searchTitle.checked,
+                content: searchContent.checked,
+                caseSensitive: searchCase.checked,
+                regex: searchRegex.checked,
+            };
+            currentTree.nodes.forEach(node => {
+                const matches = [];
+                if (options.titles && textMatches(node.title || '', query, options.caseSensitive, options.regex)) {
+                    matches.push('title');
+                }
+                if (options.content && textMatches(node.contentMarkdown || '', query, options.caseSensitive, options.regex)) {
+                    matches.push('content');
+                }
+                if (matches.length === 0) {
+                    return;
+                }
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'nxtree-search-result';
-                button.textContent = node.title || 'Untitled node';
+                button.textContent = `${(findPath(node.id) || [node.title || 'Untitled node']).join(' / ')} (${matches.join(', ')})`;
                 button.addEventListener('click', () => {
                     let current = findNode(node.id);
                     while (current && current.parentId !== null) {
@@ -733,6 +803,17 @@
                 });
                 searchResults.appendChild(button);
             });
+        }
+
+        function textMatches(haystack, query, caseSensitive, regex) {
+            if (!regex) {
+                return caseSensitive ? haystack.includes(query) : haystack.toLowerCase().includes(query.toLowerCase());
+            }
+            try {
+                return new RegExp(query, caseSensitive ? '' : 'i').test(haystack);
+            } catch (error) {
+                return false;
+            }
         }
 
         fileToggle.addEventListener('click', () => {
@@ -753,14 +834,19 @@
             searchPanel.hidden = !searchPanel.hidden;
             if (!searchPanel.hidden) {
                 searchInput.focus();
+                runSearch();
             }
         });
         searchClose.addEventListener('click', () => {
             searchPanel.hidden = true;
         });
         searchInput.addEventListener('input', runSearch);
+        [searchTitle, searchContent, searchCase, searchRegex].forEach(input => {
+            input.addEventListener('change', runSearch);
+        });
 
         initDivider();
+        makePanelDraggable(searchPanel, searchPanelHeader);
         loadTrees();
         app.dataset.ready = 'true';
     });

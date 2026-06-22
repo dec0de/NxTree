@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2
+
+- Restore `currentColor` for the app navigation icon.
+- Insert new child nodes directly under the selected parent as the first child.
+- Port MeeTree search popup options for title/content, case-sensitive, and regex search.
+- Make the search popup draggable and resizable.
+
 ## 0.6.1
 
 - Use explicit white foreground for the Nextcloud navigation icon.

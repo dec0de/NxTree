@@ -46,6 +46,12 @@
         </header>
         <div class="nxtree-search">
             <input id="nxtree-search-input" type="search" placeholder="Search loaded tree" />
+            <div class="nxtree-search-options">
+                <label><input id="nxtree-search-title" type="checkbox" checked /> Titles</label>
+                <label><input id="nxtree-search-content" type="checkbox" checked /> Content</label>
+                <label><input id="nxtree-search-case" type="checkbox" /> Match case</label>
+                <label><input id="nxtree-search-regex" type="checkbox" /> Regex</label>
+            </div>
             <div id="nxtree-search-results" class="nxtree-search-results"></div>
         </div>
     </section>

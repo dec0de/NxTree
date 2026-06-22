@@ -210,8 +210,18 @@ final class TreeService {
             [$parent, $tree] = $this->nodeContext($userId, $parentId, $baseRevision);
             $treeId = (int)$tree['id'];
             $newRevision = (int)$tree['revision'] + 1;
-            $sortOrder = count($this->childRows($treeId, $parentId));
-            $nodeId = $this->insertChildNode($treeId, $parentId, $sortOrder, 'New node', $now);
+            $nodeId = $this->insertChildNode($treeId, $parentId, -1, 'New node', $now);
+            $siblings = $this->childRows($treeId, $parentId);
+            usort($siblings, static function (array $left, array $right) use ($nodeId): int {
+                if ((int)$left['id'] === $nodeId) {
+                    return -1;
+                }
+                if ((int)$right['id'] === $nodeId) {
+                    return 1;
+                }
+                return ((int)$left['sort_order'] <=> (int)$right['sort_order']) ?: ((int)$left['id'] <=> (int)$right['id']);
+            });
+            $this->writeSiblingOrder($siblings);
             $this->updateTreeRevision($treeId, $newRevision, $now);
             $this->insertOperation($treeId, $userId, $newRevision, 'addNode', [
                 'nodeId' => $nodeId,

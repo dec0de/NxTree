@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.9
+
+- Replace the virtual Tree Library browser with a special `_directory01_` NxTree database tree.
+- Represent virtual folders and `.nxtree` files as directory tree nodes with linked database-tree metadata.
+
 ## 0.9.8
 
 - Replace Organize Tree with Load and Save actions for a file-like virtual Tree Library.

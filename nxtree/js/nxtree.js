@@ -89,6 +89,8 @@
         let filesCurrentPath = '/';
         let filesParentPath = null;
         let currentLibraryPath = '/NxTree';
+        let directoryTreeId = null;
+        let directoryTargetFolderId = null;
         const undoStack = [];
         const collapsedIds = new Set();
 
@@ -372,6 +374,9 @@
         }
 
         function renderTreeList() {
+            if (!treeList || !treeEmpty || !libraryPathEl) {
+                return;
+            }
             treeList.textContent = '';
             currentLibraryPath = normaliseLibraryPath(currentLibraryPath);
             libraryPathEl.textContent = currentLibraryPath;
@@ -637,9 +642,20 @@
 
                 const button = document.createElement('button');
                 button.type = 'button';
-                button.textContent = node.title || 'Untitled node';
+                const isTreeFile = node.nodeKind === 'tree_file' && node.linkedTreeId;
+                row.classList.toggle('nxtree-directory-file-row', isTreeFile);
+                row.classList.toggle('nxtree-directory-folder-row', currentTree && currentTree.isDirectoryTree && !isTreeFile);
+                button.textContent = isTreeFile ? `${node.title || 'Untitled tree'}.nxtree` : (node.title || 'Untitled node');
                 button.classList.toggle('active', String(node.id) === String(selectedNodeId));
-                button.addEventListener('click', () => selectNode(node.id));
+                button.addEventListener('click', () => {
+                    if (isTreeFile) {
+                        directoryTargetFolderId = node.parentId || currentTree.rootNodeId;
+                        selectedTreeId = node.linkedTreeId;
+                        loadTree(node.linkedTreeId);
+                        return;
+                    }
+                    selectNode(node.id);
+                });
                 row.appendChild(button);
                 treeEl.appendChild(row);
 
@@ -681,18 +697,23 @@
                 contentEl.disabled = true;
                 return;
             }
+            const isTreeFile = node.nodeKind === 'tree_file';
             titleEl.disabled = false;
-            contentEl.disabled = false;
+            contentEl.disabled = isTreeFile;
             titleEl.value = node.title || '';
-            contentEl.value = node.contentMarkdown || '';
+            contentEl.value = isTreeFile ? 'Virtual NxTree file. Click it in the tree to load the linked database tree.' : (node.contentMarkdown || '');
             contentEl.hidden = editorMode !== 'edit';
             previewEl.hidden = editorMode === 'edit';
-            const preview = node.contentMarkdown || 'This node is stored in the NxTree database. Editing will use revisioned operations in the next milestone.';
+            const preview = isTreeFile ? `Virtual NxTree file linked to database tree ${node.linkedTreeId}.` : (node.contentMarkdown || 'This node is stored in the NxTree database. Editing will use revisioned operations in the next milestone.');
             previewEl.innerHTML = renderMarkdown(preview);
         }
 
         function selectNode(id) {
             selectedNodeId = id;
+            const node = selectedNode();
+            if (currentTree && currentTree.isDirectoryTree && node && node.nodeKind !== 'tree_file') {
+                directoryTargetFolderId = node.id;
+            }
             renderTree();
             renderSelectedNode();
         }
@@ -735,6 +756,10 @@
             if (!node) {
                 return;
             }
+            if (node.nodeKind === 'tree_file') {
+                node.contentMarkdown = '';
+                return;
+            }
             renderTree();
             if (editorMode === 'preview') {
                 previewEl.innerHTML = renderMarkdown(node.contentMarkdown || '');
@@ -757,6 +782,9 @@
             const node = updateSelectedNodeFromEditor();
             if (!node) {
                 return;
+            }
+            if (node.nodeKind === 'tree_file') {
+                node.contentMarkdown = '';
             }
             const body = new URLSearchParams();
             body.set('title', node.title || 'Untitled node');
@@ -933,6 +961,10 @@
                 setStatus('Select a parent node first');
                 return;
             }
+            if (parent.nodeKind === 'tree_file') {
+                setStatus('Virtual files cannot contain folders');
+                return;
+            }
             pushUndoState();
             postOperation('/nodes/' + encodeURIComponent(parent.id) + '/children', new URLSearchParams())
                 .then(data => {
@@ -961,6 +993,9 @@
                 return;
             }
             if ((node.children || []).length > 0 && !window.confirm('Delete this node and all child nodes?')) {
+                return;
+            }
+            if (node.nodeKind === 'tree_file' && !window.confirm(`Remove ${node.title || 'this virtual file'}.nxtree from the library? The database tree will not be deleted.`)) {
                 return;
             }
             pushUndoState();
@@ -1049,6 +1084,10 @@
                 }))
                 .then(data => {
                     currentTree = data.tree;
+                    if (currentTree.isDirectoryTree) {
+                        directoryTreeId = currentTree.id;
+                        directoryTargetFolderId = currentTree.rootNodeId;
+                    }
                     selectedNodeId = currentTree.rootNodeId;
                     clearUndoState();
                     collapsedIds.clear();
@@ -1233,12 +1272,36 @@
         }
 
         function openTreeLibrary() {
-            if (currentTree) {
-                currentLibraryPath = treeLibraryFolder(currentTree);
-            }
-            fileMenu.hidden = false;
-            renderTreeList();
-            setStatus(`Choose a tree from ${currentLibraryPath}`);
+            setStatus('Loading NxTree Library...');
+            fetch(endpoint('/directory'), {
+                method: 'POST',
+                headers: requestHeaders(),
+                body: new URLSearchParams(),
+            })
+                .then(response => response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Could not load NxTree Library');
+                    }
+                    return data;
+                }))
+                .then(data => {
+                    currentTree = data.tree;
+                    directoryTreeId = currentTree.id;
+                    selectedTreeId = currentTree.id;
+                    selectedNodeId = currentTree.rootNodeId;
+                    directoryTargetFolderId = currentTree.rootNodeId;
+                    collapsedIds.clear();
+                    remoteChangePending = false;
+                    revisionEl.textContent = `Revision ${currentTree.revision}`;
+                    setSaveState('Saved');
+                    renderTreeList();
+                    renderTree();
+                    setEditorMode('preview');
+                    startTreeSync();
+                    fileMenu.hidden = true;
+                    setStatus('Loaded NxTree Library. Select a folder as the Save target or click a .nxtree file to open it.');
+                })
+                .catch(error => setStatus(error.message));
         }
 
         function saveTreeToLibrary() {
@@ -1246,13 +1309,18 @@
                 setStatus('Open a tree before saving');
                 return;
             }
+            if (currentTree.isDirectoryTree) {
+                setStatus('The NxTree Library saves itself automatically');
+                return;
+            }
             const body = new URLSearchParams();
-            body.set('libraryPath', currentLibraryPath);
             body.set('libraryName', treeLibraryName(currentTree));
-            body.set('baseRevision', String(currentTree.revision));
+            if (directoryTargetFolderId !== null) {
+                body.set('folderNodeId', String(directoryTargetFolderId));
+            }
             saveTreeButton.disabled = true;
-            setStatus(`Saving ${treeLibraryName(currentTree)}.nxtree to ${currentLibraryPath}...`);
-            fetch(endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/library'), {
+            setStatus(`Saving ${treeLibraryName(currentTree)}.nxtree to NxTree Library...`);
+            fetch(endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/directory'), {
                 method: 'POST',
                 headers: requestHeaders(),
                 body,
@@ -1264,12 +1332,9 @@
                     return data;
                 }))
                 .then(data => {
-                    currentTree = data.tree;
-                    selectedTreeId = currentTree.id;
-                    currentLibraryPath = treeLibraryFolder(currentTree);
-                    refreshTreeSummary(currentTree);
-                    revisionEl.textContent = `Revision ${currentTree.revision}`;
-                    setStatus(`Saved ${treeLibraryName(currentTree)}.nxtree in ${currentLibraryPath}.`);
+                    directoryTreeId = data.tree.id;
+                    renderTreeList();
+                    setStatus(`Saved ${treeLibraryName(currentTree)}.nxtree to NxTree Library.`);
                 })
                 .catch(error => setStatus(error.message))
                 .finally(() => {

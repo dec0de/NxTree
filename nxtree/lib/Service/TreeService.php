@@ -15,6 +15,11 @@ use UnexpectedValueException;
 
 final class TreeService {
     private const DEFAULT_EXPORT_FOLDER = '/NxTree';
+    private const DIRECTORY_TREE_TITLE = '_directory01_';
+    private const DIRECTORY_ROOT_TITLE = 'NxTree Library';
+    private const NODE_KIND_NOTE = 'note';
+    private const NODE_KIND_FOLDER = 'folder';
+    private const NODE_KIND_TREE_FILE = 'tree_file';
 
     public function __construct(
         private IDBConnection $db,
@@ -30,6 +35,7 @@ final class TreeService {
         $result = $qb->select('id', 'title', 'root_node_id', 'revision', 'created_at', 'updated_at', 'source_file_path', 'last_export_folder_path', 'library_path', 'library_name')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
+            ->andWhere($qb->expr()->neq('title', $qb->createNamedParameter(self::DIRECTORY_TREE_TITLE)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
             ->orderBy('updated_at', 'DESC')
             ->executeQuery();
@@ -82,6 +88,16 @@ final class TreeService {
             'createdAt' => $now,
             'updatedAt' => $now,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function directoryTree(string $userId): array {
+        $directoryTreeId = $this->ensureDirectoryTree($userId);
+        $this->seedDirectoryTree($userId, $directoryTreeId);
+
+        return $this->loadedTree($userId, $directoryTreeId);
     }
 
     /**
@@ -214,8 +230,7 @@ final class TreeService {
     /**
      * @return array<string, mixed>
      */
-    public function saveTreeToLibrary(string $userId, int $treeId, string $libraryPath, string $libraryName, int $baseRevision): array {
-        $libraryPath = $this->normalisePath($libraryPath);
+    public function saveTreeToDirectory(string $userId, int $treeId, ?int $folderNodeId, string $libraryName): array {
         $libraryName = $this->normaliseLibraryName($libraryName);
         $now = time();
         $this->db->beginTransaction();
@@ -225,18 +240,39 @@ final class TreeService {
             if ($tree === null || (string)$tree['owner_user_id'] !== $userId) {
                 throw new InvalidArgumentException('Tree not found');
             }
-            if ($baseRevision !== (int)$tree['revision']) {
-                throw new UnexpectedValueException('Tree changed elsewhere. Reload before saving.');
+            if ((string)$this->treeTitle($treeId) === self::DIRECTORY_TREE_TITLE) {
+                throw new InvalidArgumentException('The directory tree cannot be saved as a library file');
             }
             if ($libraryName === '') {
                 $libraryName = $this->normaliseLibraryName((string)($tree['library_name'] ?? '') ?: $this->treeTitle($treeId));
             }
 
-            $newRevision = (int)$tree['revision'] + 1;
+            $directoryTreeId = $this->ensureDirectoryTree($userId);
+            $directory = $this->treeRow($directoryTreeId);
+            if ($directory === null) {
+                throw new InvalidArgumentException('Directory tree could not be loaded');
+            }
+            $targetFolderId = $folderNodeId ?? (int)$directory['root_node_id'];
+            $folder = $this->nodeRow($targetFolderId);
+            if ($folder === null || (int)$folder['tree_id'] !== $directoryTreeId || (string)($folder['node_kind'] ?? self::NODE_KIND_NOTE) !== self::NODE_KIND_FOLDER) {
+                throw new InvalidArgumentException('Choose a directory folder before saving');
+            }
+
+            $existingFileId = $this->directoryFileNodeId($directoryTreeId, $treeId);
+            if ($existingFileId === null) {
+                $this->insertChildNode($directoryTreeId, $targetFolderId, count($this->childRows($directoryTreeId, $targetFolderId)), $libraryName, $now, self::NODE_KIND_TREE_FILE, $treeId);
+            } else {
+                $this->moveNodeRow($existingFileId, $targetFolderId, count($this->childRows($directoryTreeId, $targetFolderId)));
+                $this->updateDirectoryFileNode($existingFileId, $libraryName, $treeId, $now);
+            }
+            $libraryPath = $this->directoryPathForNode($targetFolderId);
             $this->updateTreeLibraryFile($treeId, $libraryPath, $libraryName);
-            $this->updateTreeRevision($treeId, $newRevision, $now);
-            $this->insertOperation($treeId, $userId, $newRevision, 'saveToLibrary', [
-                'libraryPath' => $libraryPath,
+
+            $newRevision = (int)$directory['revision'] + 1;
+            $this->updateTreeRevision($directoryTreeId, $newRevision, $now);
+            $this->insertOperation($directoryTreeId, $userId, $newRevision, 'saveToDirectory', [
+                'treeId' => $treeId,
+                'folderNodeId' => $targetFolderId,
                 'libraryName' => $libraryName,
             ], $now);
 
@@ -246,7 +282,7 @@ final class TreeService {
             throw $e;
         }
 
-        return $this->loadedTree($userId, $treeId);
+        return $this->loadedTree($userId, $directoryTreeId);
     }
 
     /**
@@ -365,9 +401,16 @@ final class TreeService {
             }
 
             $newRevision = $currentRevision + 1;
+            if ((string)($node['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_TREE_FILE) {
+                $contentMarkdown = '';
+            }
             $this->updateNodeRow($nodeId, $title, $contentMarkdown, (int)$node['version'] + 1, $now);
+            if ((string)($node['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_TREE_FILE && isset($node['linked_tree_id']) && $node['linked_tree_id'] !== null) {
+                $folderId = $node['parent_id'] === null ? (int)$tree['root_node_id'] : (int)$node['parent_id'];
+                $this->updateTreeLibraryFile((int)$node['linked_tree_id'], $this->directoryPathForNode($folderId), $this->normaliseLibraryName($title));
+            }
             $this->updateTreeRevision((int)$tree['id'], $newRevision, $now);
-            if ((int)$tree['root_node_id'] === $nodeId) {
+            if ((int)$tree['root_node_id'] === $nodeId && $this->treeTitle((int)$tree['id']) !== self::DIRECTORY_TREE_TITLE) {
                 $this->updateTreeTitle((int)$tree['id'], $title);
             }
             $this->insertOperation((int)$tree['id'], $userId, $newRevision, 'updateNode', [
@@ -398,9 +441,13 @@ final class TreeService {
 
         try {
             [$parent, $tree] = $this->nodeContext($userId, $parentId, $baseRevision);
+            if ((string)($parent['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_TREE_FILE) {
+                throw new InvalidArgumentException('Virtual files cannot contain folders');
+            }
             $treeId = (int)$tree['id'];
             $newRevision = (int)$tree['revision'] + 1;
-            $nodeId = $this->insertChildNode($treeId, $parentId, -1, 'New node', $now);
+            $directoryMode = $this->treeTitle($treeId) === self::DIRECTORY_TREE_TITLE;
+            $nodeId = $this->insertChildNode($treeId, $parentId, -1, $directoryMode ? 'New folder' : 'New node', $now, $directoryMode ? self::NODE_KIND_FOLDER : self::NODE_KIND_NOTE);
             $siblings = $this->childRows($treeId, $parentId);
             usort($siblings, static function (array $left, array $right) use ($nodeId): int {
                 if ((int)$left['id'] === $nodeId) {
@@ -516,6 +563,9 @@ final class TreeService {
             if ($nodeId === $targetId || in_array($targetId, $this->descendantIds($treeId, $nodeId), true)) {
                 throw new InvalidArgumentException('Cannot move a node into itself');
             }
+            if ($mode === 'inside' && (string)($target['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_TREE_FILE) {
+                throw new InvalidArgumentException('Virtual files cannot contain folders');
+            }
 
             $oldParentId = $node['parent_id'] === null ? null : (int)$node['parent_id'];
             if ($mode === 'inside') {
@@ -542,6 +592,7 @@ final class TreeService {
                 'id' => $nodeId,
             ]]);
             $this->writeSiblingOrder($siblings);
+            $this->refreshDirectoryMetadataForBranch($treeId, $nodeId);
             $newRevision = (int)$tree['revision'] + 1;
             $this->updateTreeRevision($treeId, $newRevision, $now);
             $this->insertOperation($treeId, $userId, $newRevision, 'moveNode', [
@@ -641,7 +692,7 @@ final class TreeService {
         return (int)$this->db->lastInsertId('nxtree_trees');
     }
 
-    private function insertRootNode(int $treeId, string $title, int $now): int {
+    private function insertRootNode(int $treeId, string $title, int $now, string $nodeKind = self::NODE_KIND_NOTE): int {
         $qb = $this->db->getQueryBuilder();
         $qb->insert('nxtree_nodes')
             ->values([
@@ -650,6 +701,8 @@ final class TreeService {
                 'sort_order' => $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT),
                 'title' => $qb->createNamedParameter($title),
                 'content_markdown' => $qb->createNamedParameter(''),
+                'node_kind' => $qb->createNamedParameter($nodeKind),
+                'linked_tree_id' => $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL),
                 'version' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
                 'created_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
                 'updated_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
@@ -659,7 +712,7 @@ final class TreeService {
         return (int)$this->db->lastInsertId('nxtree_nodes');
     }
 
-    private function insertChildNode(int $treeId, int $parentId, int $sortOrder, string $title, int $now): int {
+    private function insertChildNode(int $treeId, int $parentId, int $sortOrder, string $title, int $now, string $nodeKind = self::NODE_KIND_NOTE, ?int $linkedTreeId = null): int {
         $qb = $this->db->getQueryBuilder();
         $qb->insert('nxtree_nodes')
             ->values([
@@ -668,6 +721,8 @@ final class TreeService {
                 'sort_order' => $qb->createNamedParameter($sortOrder, IQueryBuilder::PARAM_INT),
                 'title' => $qb->createNamedParameter($title),
                 'content_markdown' => $qb->createNamedParameter(''),
+                'node_kind' => $qb->createNamedParameter($nodeKind),
+                'linked_tree_id' => $linkedTreeId === null ? $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL) : $qb->createNamedParameter($linkedTreeId, IQueryBuilder::PARAM_INT),
                 'version' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
                 'created_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
                 'updated_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
@@ -691,6 +746,8 @@ final class TreeService {
                 'sort_order' => $qb->createNamedParameter($sortOrder, IQueryBuilder::PARAM_INT),
                 'title' => $qb->createNamedParameter($title),
                 'content_markdown' => $qb->createNamedParameter($content),
+                'node_kind' => $qb->createNamedParameter(self::NODE_KIND_NOTE),
+                'linked_tree_id' => $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL),
                 'version' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
                 'created_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
                 'updated_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
@@ -788,6 +845,8 @@ final class TreeService {
             ->set('sort_order', $qb->createNamedParameter((int)($node['sortOrder'] ?? 0), IQueryBuilder::PARAM_INT))
             ->set('title', $qb->createNamedParameter(mb_substr(trim((string)($node['title'] ?? 'Untitled node')) ?: 'Untitled node', 0, 255)))
             ->set('content_markdown', $qb->createNamedParameter((string)($node['contentMarkdown'] ?? '')))
+            ->set('node_kind', $qb->createNamedParameter((string)($node['nodeKind'] ?? self::NODE_KIND_NOTE)))
+            ->set('linked_tree_id', isset($node['linkedTreeId']) && $node['linkedTreeId'] !== null ? $qb->createNamedParameter((int)$node['linkedTreeId'], IQueryBuilder::PARAM_INT) : $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
             ->set('version', $qb->createNamedParameter(((int)($node['version'] ?? 1)) + 1, IQueryBuilder::PARAM_INT))
             ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
             ->set('deleted_at', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
@@ -836,7 +895,7 @@ final class TreeService {
      */
     private function listNodes(int $treeId): array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'parent_id', 'sort_order', 'title', 'content_markdown', 'version', 'created_at', 'updated_at')
+        $result = $qb->select('id', 'parent_id', 'sort_order', 'title', 'content_markdown', 'version', 'created_at', 'updated_at', 'node_kind', 'linked_tree_id')
             ->from('nxtree_nodes')
             ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
@@ -853,6 +912,8 @@ final class TreeService {
                 'sortOrder' => (int)$row['sort_order'],
                 'title' => (string)$row['title'],
                 'contentMarkdown' => (string)($row['content_markdown'] ?? ''),
+                'nodeKind' => (string)($row['node_kind'] ?? self::NODE_KIND_NOTE),
+                'linkedTreeId' => $row['linked_tree_id'] === null ? null : (int)$row['linked_tree_id'],
                 'version' => (int)$row['version'],
                 'createdAt' => (int)$row['created_at'],
                 'updatedAt' => (int)$row['updated_at'],
@@ -1110,6 +1171,164 @@ final class TreeService {
         return [$node, $tree];
     }
 
+    private function ensureDirectoryTree(string $userId): int {
+        $existing = $this->directoryTreeRow($userId);
+        if ($existing !== null) {
+            return (int)$existing['id'];
+        }
+
+        $now = time();
+        $treeId = $this->insertTree($userId, self::DIRECTORY_TREE_TITLE, $now, null, null);
+        $rootNodeId = $this->insertRootNode($treeId, self::DIRECTORY_ROOT_TITLE, $now, self::NODE_KIND_FOLDER);
+        $this->activateTree($treeId, $rootNodeId, $now);
+        $this->insertOperation($treeId, $userId, 1, 'createDirectoryTree', [
+            'rootNodeId' => $rootNodeId,
+        ], $now);
+
+        return $treeId;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function directoryTreeRow(string $userId): ?array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id', 'root_node_id')
+            ->from('nxtree_trees')
+            ->where($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
+            ->andWhere($qb->expr()->eq('title', $qb->createNamedParameter(self::DIRECTORY_TREE_TITLE)))
+            ->andWhere($qb->expr()->isNull('deleted_at'))
+            ->setMaxResults(1)
+            ->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        return $row === false ? null : $row;
+    }
+
+    private function seedDirectoryTree(string $userId, int $directoryTreeId): void {
+        $directory = $this->treeRow($directoryTreeId);
+        if ($directory === null || $directory['root_node_id'] === null || count($this->childRows($directoryTreeId, (int)$directory['root_node_id'])) > 0) {
+            return;
+        }
+
+        foreach ($this->listTrees($userId) as $tree) {
+            if ((int)$tree['id'] === $directoryTreeId) {
+                continue;
+            }
+            if ($this->directoryFileNodeId($directoryTreeId, (int)$tree['id']) !== null) {
+                continue;
+            }
+
+            $folderPath = (string)($tree['libraryPath'] ?? '');
+            if ($folderPath === '') {
+                $sourcePath = (string)($tree['sourceFilePath'] ?? '');
+                $folderPath = $sourcePath !== '' ? $this->parentPath($sourcePath) : ((string)($tree['lastExportFolderPath'] ?? '') ?: self::DEFAULT_EXPORT_FOLDER);
+            }
+            $folderNodeId = $this->ensureDirectoryFolderPath($directoryTreeId, $folderPath);
+            $name = $this->normaliseLibraryName((string)($tree['libraryName'] ?? '') ?: (string)$tree['title']);
+            $this->insertChildNode($directoryTreeId, $folderNodeId, count($this->childRows($directoryTreeId, $folderNodeId)), $name, time(), self::NODE_KIND_TREE_FILE, (int)$tree['id']);
+        }
+    }
+
+    private function ensureDirectoryFolderPath(int $directoryTreeId, string $path): int {
+        $tree = $this->treeRow($directoryTreeId);
+        if ($tree === null || $tree['root_node_id'] === null) {
+            throw new InvalidArgumentException('Directory tree has no root folder');
+        }
+        $parentId = (int)$tree['root_node_id'];
+        $parts = array_values(array_filter(explode('/', trim($this->normalisePath($path), '/')), static fn (string $part): bool => $part !== ''));
+        if (isset($parts[0]) && $parts[0] === 'NxTree') {
+            array_shift($parts);
+        }
+
+        foreach ($parts as $part) {
+            $existing = $this->childFolderByTitle($directoryTreeId, $parentId, $part);
+            if ($existing !== null) {
+                $parentId = $existing;
+                continue;
+            }
+            $parentId = $this->insertChildNode($directoryTreeId, $parentId, count($this->childRows($directoryTreeId, $parentId)), $part, time(), self::NODE_KIND_FOLDER);
+        }
+
+        return $parentId;
+    }
+
+    private function childFolderByTitle(int $treeId, int $parentId, string $title): ?int {
+        foreach ($this->childRows($treeId, $parentId) as $child) {
+            if ((string)$child['title'] === $title && (string)($child['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_FOLDER) {
+                return (int)$child['id'];
+            }
+        }
+
+        return null;
+    }
+
+    private function directoryFileNodeId(int $directoryTreeId, int $linkedTreeId): ?int {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id')
+            ->from('nxtree_nodes')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($directoryTreeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('node_kind', $qb->createNamedParameter(self::NODE_KIND_TREE_FILE)))
+            ->andWhere($qb->expr()->eq('linked_tree_id', $qb->createNamedParameter($linkedTreeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->isNull('deleted_at'))
+            ->setMaxResults(1)
+            ->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        return $row === false ? null : (int)$row['id'];
+    }
+
+    private function updateDirectoryFileNode(int $nodeId, string $title, int $linkedTreeId, int $now): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_nodes')
+            ->set('title', $qb->createNamedParameter($title))
+            ->set('content_markdown', $qb->createNamedParameter(''))
+            ->set('node_kind', $qb->createNamedParameter(self::NODE_KIND_TREE_FILE))
+            ->set('linked_tree_id', $qb->createNamedParameter($linkedTreeId, IQueryBuilder::PARAM_INT))
+            ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    private function directoryPathForNode(int $nodeId): string {
+        $parts = [];
+        $node = $this->nodeRowIncludingDeleted($nodeId);
+        while ($node !== null && $node['parent_id'] !== null) {
+            array_unshift($parts, (string)$node['title']);
+            $node = $this->nodeRowIncludingDeleted((int)$node['parent_id']);
+        }
+
+        return self::DEFAULT_EXPORT_FOLDER . ($parts === [] ? '' : '/' . implode('/', $parts));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function nodeRowIncludingDeleted(int $nodeId): ?array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id', 'tree_id', 'parent_id', 'title', 'node_kind', 'linked_tree_id')
+            ->from('nxtree_nodes')
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        return $row === false ? null : $row;
+    }
+
+    private function refreshDirectoryMetadataForBranch(int $treeId, int $nodeId): void {
+        foreach (array_merge([$nodeId], $this->descendantIds($treeId, $nodeId)) as $id) {
+            $node = $this->nodeRow($id);
+            if ($node === null || (string)($node['node_kind'] ?? self::NODE_KIND_NOTE) !== self::NODE_KIND_TREE_FILE || $node['linked_tree_id'] === null) {
+                continue;
+            }
+            $folderId = $node['parent_id'] === null ? $nodeId : (int)$node['parent_id'];
+            $this->updateTreeLibraryFile((int)$node['linked_tree_id'], $this->directoryPathForNode($folderId), $this->normaliseLibraryName((string)$node['title']));
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -1127,7 +1346,7 @@ final class TreeService {
      */
     private function childRows(int $treeId, ?int $parentId): array {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('id', 'parent_id', 'sort_order', 'title')
+        $qb->select('id', 'parent_id', 'sort_order', 'title', 'node_kind', 'linked_tree_id')
             ->from('nxtree_nodes')
             ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
@@ -1201,7 +1420,7 @@ final class TreeService {
      */
     private function nodeRow(int $nodeId): ?array {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'tree_id', 'parent_id', 'sort_order', 'title', 'version')
+        $result = $qb->select('id', 'tree_id', 'parent_id', 'sort_order', 'title', 'version', 'node_kind', 'linked_tree_id')
             ->from('nxtree_nodes')
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
@@ -1246,6 +1465,7 @@ final class TreeService {
             'lastExportFolderPath' => $row['last_export_folder_path'] === null ? null : (string)$row['last_export_folder_path'],
             'libraryPath' => $row['library_path'] === null ? null : (string)$row['library_path'],
             'libraryName' => $row['library_name'] === null ? null : (string)$row['library_name'],
+            'isDirectoryTree' => (string)$row['title'] === self::DIRECTORY_TREE_TITLE ? 1 : 0,
         ];
     }
 

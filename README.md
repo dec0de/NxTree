@@ -6,7 +6,7 @@ NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's
 
 ## Status
 
-NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, load and save database trees through a virtual file-like Tree Library, import `.mtre` files from an in-app Nextcloud Files browser, export the selected branch with a Nextcloud Files destination/filename browser, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, undo recent structure mistakes when safe, and receive polling-based remote updates. The Tree Library presents database trees as `.nxtree` entries; import/export remains the real Nextcloud Files workflow for `.mtre` portability.
+NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, load and save database trees through a special `_directory01_` NxTree database tree, import `.mtre` files from an in-app Nextcloud Files browser, export the selected branch with a Nextcloud Files destination/filename browser, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, undo recent structure mistakes when safe, and receive polling-based remote updates. The `_directory01_` tree represents virtual folders and `.nxtree` file entries as regular tree nodes; import/export remains the real Nextcloud Files workflow for `.mtre` portability.
 
 ## Installation
 
@@ -146,7 +146,7 @@ This gives NxTree safe multiuser editing before adding more advanced real-time i
 - Export database trees to `.mtre`.
 - Export selected branches to `.mtre`.
 - Import/export through Nextcloud Files paths.
-- Load/save database trees through virtual `.nxtree` Tree Library entries.
+- Load/save database trees through a special `_directory01_` directory tree with virtual folders and linked `.nxtree` file nodes.
 - Reuse MeeTree HJT/CTD codecs where practical.
 
 ### Phase 7: Real-Time Text Collaboration

@@ -321,6 +321,18 @@
     background: var(--color-primary-light);
 }
 
+.nxtree-directory-folder-row > button::before {
+    content: "Folder: ";
+    color: var(--color-text-maxcontrast);
+    font-weight: 600;
+}
+
+.nxtree-directory-file-row > button::before {
+    content: "File: ";
+    color: var(--color-text-maxcontrast);
+    font-weight: 600;
+}
+
 .nxtree-editor {
     display: flex;
     flex-direction: column;

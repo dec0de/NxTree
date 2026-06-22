@@ -110,6 +110,15 @@ final class Version000100Date20260622120000 extends SimpleMigrationStep {
                 'notnull' => false,
                 'unsigned' => true,
             ]);
+            $table->addColumn('node_kind', 'string', [
+                'notnull' => true,
+                'length' => 32,
+                'default' => 'note',
+            ]);
+            $table->addColumn('linked_tree_id', 'bigint', [
+                'notnull' => false,
+                'unsigned' => true,
+            ]);
             $table->setPrimaryKey(['id']);
             $table->addIndex(['tree_id', 'parent_id', 'sort_order'], 'nxtree_nodes_tree_parent_idx');
             $table->addIndex(['tree_id', 'deleted_at'], 'nxtree_nodes_tree_deleted_idx');

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Replace the early placeholder UI with a current MeeTree-style full-screen shell.
+- Add compact File and Search controls, resizable tree/editor divider, and editor/status layout.
+- Render database-backed nodes with MeeTree-style tree connector lines and branch expand/collapse controls.
+- Keep NxTree independent while adapting the proven MeeTree visual structure.
+
 ## 0.3.1
 
 - Use `currentColor` for the app navigation icon so Nextcloud can theme it correctly.

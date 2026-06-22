@@ -6,7 +6,7 @@ NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's
 
 ## Status
 
-NxTree currently provides a first runnable database-backed app version. You can enable the app, create database-backed trees, list them, open a tree, import `.mtre` files into database-backed trees, and view stored nodes in a MeeTree-inspired shell. Full node editing, sync, and export are planned next.
+NxTree currently provides a first runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, list them, open a tree, import `.mtre` files into database-backed trees, and view stored nodes with tree connector lines, branch expand/collapse, Markdown preview, and a resizable tree/editor layout. Full node editing, sync, and export are planned next.
 
 ## Installation
 
@@ -109,6 +109,7 @@ This gives NxTree safe multiuser editing before adding more advanced real-time i
 - Create, list, and open database-backed trees.
 - Render root nodes in a first tree/editor UI shell.
 - Import `.mtre` files into database-backed trees.
+- Use a current MeeTree-style full-screen UI shell with resizable divider and connector-line tree rendering.
 
 ### Phase 2: Database Tree Editor
 

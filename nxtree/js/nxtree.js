@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+    const sidebarWidthStorageKey = 'nxtree.sidebarWidth';
+
     function endpoint(path) {
         if (window.OC && typeof window.OC.generateUrl === 'function') {
             return window.OC.generateUrl('/apps/nxtree' + path);
@@ -10,289 +12,459 @@
     }
 
     function requestHeaders() {
-        var headers = {
-            'Accept': 'application/json'
-        };
-
+        const headers = { Accept: 'application/json' };
         if (window.OC && window.OC.requestToken) {
             headers.requesttoken = window.OC.requestToken;
         }
-
         return headers;
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        var app = document.getElementById('nxtree-app');
+        const app = document.getElementById('nxtree-app');
         if (!app) {
             return;
         }
 
-        var newTreeButton = document.getElementById('nxtree-new-tree');
-        var importFile = document.getElementById('nxtree-import-file');
-        var treeList = document.getElementById('nxtree-tree-list');
-        var nodeList = document.getElementById('nxtree-node-list');
-        var emptyState = document.getElementById('nxtree-tree-empty');
-        var currentTitle = document.getElementById('nxtree-current-title');
-        var status = document.getElementById('nxtree-status');
-        var editor = document.getElementById('nxtree-editor');
-        var nodeTitle = document.getElementById('nxtree-node-title');
-        var nodeContent = document.getElementById('nxtree-node-content');
-        var nodePreview = document.getElementById('nxtree-node-preview');
-        var editModeButton = document.getElementById('nxtree-edit-mode');
-        var revision = document.getElementById('nxtree-revision');
-        var trees = [];
-        var selectedTreeId = null;
-        var currentTree = null;
-        var selectedNodeId = null;
-        var editorMode = 'preview';
+        const fileToggle = document.getElementById('nxtree-file-toggle');
+        const fileMenu = document.getElementById('nxtree-file-menu');
+        const newTreeButton = document.getElementById('nxtree-new-tree');
+        const importFile = document.getElementById('nxtree-import-file');
+        const treeList = document.getElementById('nxtree-tree-list');
+        const treeEmpty = document.getElementById('nxtree-tree-empty');
+        const treeEl = document.getElementById('nxtree-tree');
+        const dividerEl = document.getElementById('nxtree-divider');
+        const titleEl = document.getElementById('nxtree-node-title');
+        const contentEl = document.getElementById('nxtree-node-content');
+        const previewEl = document.getElementById('nxtree-node-preview');
+        const editModeButton = document.getElementById('nxtree-edit-mode');
+        const revisionEl = document.getElementById('nxtree-revision');
+        const statusEl = document.getElementById('nxtree-status');
+        const expandButton = document.getElementById('nxtree-expand-branch');
+        const collapseButton = document.getElementById('nxtree-collapse-branch');
+        const searchToggle = document.getElementById('nxtree-search-toggle');
+        const searchPanel = document.getElementById('nxtree-search-panel');
+        const searchClose = document.getElementById('nxtree-search-close');
+        const searchInput = document.getElementById('nxtree-search-input');
+        const searchResults = document.getElementById('nxtree-search-results');
+
+        let trees = [];
+        let selectedTreeId = null;
+        let currentTree = null;
+        let selectedNodeId = null;
+        let editorMode = 'preview';
+        const collapsedIds = new Set();
 
         function setStatus(message) {
-            if (status) {
-                status.textContent = message;
-            }
+            statusEl.textContent = message;
         }
 
-        function renderTrees() {
-            treeList.textContent = '';
-            emptyState.hidden = trees.length > 0;
+        function initDivider() {
+            const storedWidth = localStorage.getItem(sidebarWidthStorageKey);
+            if (storedWidth) {
+                app.style.setProperty('--nxtree-sidebar-width', storedWidth);
+            }
+            if (!dividerEl) {
+                return;
+            }
+            dividerEl.addEventListener('pointerdown', event => {
+                if (window.matchMedia('(max-width: 800px)').matches) {
+                    return;
+                }
+                event.preventDefault();
+                dividerEl.classList.add('dragging');
+                app.classList.add('resizing-sidebar');
+                dividerEl.setPointerCapture(event.pointerId);
 
-            trees.forEach(function (tree) {
-                var button = document.createElement('button');
+                function onMove(moveEvent) {
+                    const rect = app.getBoundingClientRect();
+                    const width = Math.min(Math.max(240, moveEvent.clientX - rect.left), Math.max(320, rect.width * 0.7));
+                    const value = `${Math.round(width)}px`;
+                    app.style.setProperty('--nxtree-sidebar-width', value);
+                    localStorage.setItem(sidebarWidthStorageKey, value);
+                }
+
+                function onUp(upEvent) {
+                    dividerEl.classList.remove('dragging');
+                    app.classList.remove('resizing-sidebar');
+                    dividerEl.releasePointerCapture(upEvent.pointerId);
+                    dividerEl.removeEventListener('pointermove', onMove);
+                    dividerEl.removeEventListener('pointerup', onUp);
+                    dividerEl.removeEventListener('pointercancel', onUp);
+                }
+
+                dividerEl.addEventListener('pointermove', onMove);
+                dividerEl.addEventListener('pointerup', onUp);
+                dividerEl.addEventListener('pointercancel', onUp);
+            });
+        }
+
+        function markdownToHtml(markdown) {
+            const escaped = String(markdown || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/^### (.*)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.*)$/gm, '<h2>$1</h2>')
+                .replace(/^# (.*)$/gm, '<h1>$1</h1>')
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+            return escaped.split(/\n{2,}/).map(paragraph => {
+                if (/^<h[1-3]>/.test(paragraph)) {
+                    return paragraph;
+                }
+                return `<p>${paragraph.replace(/\n/g, '<br>')}</p>`;
+            }).join('');
+        }
+
+        function buildNodeTree() {
+            if (!currentTree || !Array.isArray(currentTree.nodes)) {
+                return [];
+            }
+            const byParent = new Map();
+            currentTree.nodes.forEach(node => {
+                const key = node.parentId === null ? 'root' : String(node.parentId);
+                if (!byParent.has(key)) {
+                    byParent.set(key, []);
+                }
+                byParent.get(key).push({ ...node, children: [] });
+            });
+            byParent.forEach(nodes => nodes.sort((left, right) => (left.sortOrder - right.sortOrder) || (left.id - right.id)));
+            const byId = new Map();
+            byParent.forEach(nodes => nodes.forEach(node => byId.set(String(node.id), node)));
+            byId.forEach(node => {
+                node.children = byParent.get(String(node.id)) || [];
+            });
+            return byParent.get('root') || [];
+        }
+
+        function findNode(id, nodes = buildNodeTree()) {
+            for (const node of nodes) {
+                if (String(node.id) === String(id)) {
+                    return node;
+                }
+                const found = findNode(id, node.children || []);
+                if (found) {
+                    return found;
+                }
+            }
+            return null;
+        }
+
+        function selectedNode() {
+            return selectedNodeId === null ? null : findNode(selectedNodeId);
+        }
+
+        function collapseSubtree(node) {
+            collapsedIds.add(String(node.id));
+            (node.children || []).forEach(child => collapseSubtree(child));
+        }
+
+        function expandSubtree(node) {
+            collapsedIds.delete(String(node.id));
+            (node.children || []).forEach(child => expandSubtree(child));
+        }
+
+        function renderTreeList() {
+            treeList.textContent = '';
+            treeEmpty.hidden = trees.length > 0;
+            trees.forEach(tree => {
+                const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'nxtree-tree-item';
                 button.classList.toggle('active', tree.id === selectedTreeId);
                 button.textContent = tree.title || 'Untitled tree';
-                button.title = 'Open tree';
-                button.addEventListener('click', function () {
+                button.addEventListener('click', () => {
                     selectedTreeId = tree.id;
-                    renderTrees();
+                    renderTreeList();
                     loadTree(tree.id);
                 });
                 treeList.appendChild(button);
             });
         }
 
-        function markdownToHtml(markdown) {
-            var escaped = String(markdown || '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>');
-
-            return escaped.split(/\n{2,}/).map(function (paragraph) {
-                return '<p>' + paragraph.replace(/\n/g, '<br>') + '</p>';
-            }).join('');
-        }
-
-        function renderNodes() {
-            nodeList.textContent = '';
-            if (!currentTree || !Array.isArray(currentTree.nodes) || currentTree.nodes.length === 0) {
-                nodeList.textContent = 'No nodes loaded.';
+        function renderTree() {
+            treeEl.textContent = '';
+            const roots = buildNodeTree();
+            if (roots.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'nxtree-empty';
+                empty.textContent = currentTree ? 'No nodes loaded.' : 'Create or import a tree.';
+                treeEl.appendChild(empty);
                 return;
             }
 
-            var byParent = {};
-            currentTree.nodes.forEach(function (node) {
-                var key = node.parentId === null ? 'root' : String(node.parentId);
-                if (!byParent[key]) {
-                    byParent[key] = [];
+            function add(node, ancestorHasNext, isLast, isRoot) {
+                const row = document.createElement('div');
+                row.className = 'nxtree-tree-row';
+                const guides = document.createElement('span');
+                guides.className = 'nxtree-tree-guides';
+                ancestorHasNext.forEach(hasNext => {
+                    const guide = document.createElement('span');
+                    guide.className = `nxtree-tree-guide ${hasNext ? 'continue' : 'blank'}`;
+                    guides.appendChild(guide);
+                });
+                if (!isRoot) {
+                    const connector = document.createElement('span');
+                    connector.className = `nxtree-tree-guide ${isLast ? 'elbow' : 'tee'}`;
+                    guides.appendChild(connector);
                 }
-                byParent[key].push(node);
-            });
 
-            function addNode(node, depth) {
-                var button = document.createElement('button');
+                const children = node.children || [];
+                const isCollapsed = collapsedIds.has(String(node.id));
+                row.appendChild(guides);
+                if (children.length > 0) {
+                    const toggle = document.createElement('button');
+                    toggle.type = 'button';
+                    toggle.className = 'nxtree-tree-toggle';
+                    toggle.textContent = isCollapsed ? '+' : '-';
+                    toggle.title = isCollapsed ? 'Expand branch' : 'Collapse branch';
+                    toggle.addEventListener('click', event => {
+                        event.stopPropagation();
+                        selectNode(node.id);
+                        if (collapsedIds.has(String(node.id))) {
+                            collapsedIds.delete(String(node.id));
+                        } else {
+                            collapseSubtree(node);
+                        }
+                        renderTree();
+                    });
+                    row.appendChild(toggle);
+                } else {
+                    const spacer = document.createElement('span');
+                    spacer.className = 'nxtree-tree-toggle-spacer';
+                    row.appendChild(spacer);
+                }
+
+                const button = document.createElement('button');
                 button.type = 'button';
-                button.className = 'nxtree-node-item';
-                button.style.paddingLeft = String(28 + depth * 18) + 'px';
-                button.style.setProperty('--nxtree-line-left', String(12 + depth * 18) + 'px');
-                button.classList.toggle('active', node.id === selectedNodeId);
                 button.textContent = node.title || 'Untitled node';
-                button.addEventListener('click', function () {
-                    selectedNodeId = node.id;
-                    renderNodes();
-                    renderSelectedNode();
-                });
-                nodeList.appendChild(button);
+                button.classList.toggle('active', String(node.id) === String(selectedNodeId));
+                button.addEventListener('click', () => selectNode(node.id));
+                row.appendChild(button);
+                treeEl.appendChild(row);
 
-                (byParent[String(node.id)] || []).forEach(function (child) {
-                    addNode(child, depth + 1);
-                });
+                if (isCollapsed) {
+                    return;
+                }
+                const childAncestors = isRoot ? ancestorHasNext : ancestorHasNext.concat(!isLast);
+                children.forEach((child, index) => add(child, childAncestors, index === children.length - 1, false));
             }
 
-            (byParent.root || []).forEach(function (node) {
-                addNode(node, 0);
-            });
-        }
-
-        function selectedNode() {
-            if (!currentTree || !Array.isArray(currentTree.nodes)) {
-                return null;
-            }
-
-            return currentTree.nodes.find(function (node) {
-                return node.id === selectedNodeId;
-            }) || null;
+            roots.forEach((node, index) => add(node, [], index === roots.length - 1, roots.length === 1));
         }
 
         function renderSelectedNode() {
-            var node = selectedNode();
-            editor.hidden = !node;
+            const node = selectedNode();
             if (!node) {
+                titleEl.value = '';
+                contentEl.value = '';
+                previewEl.innerHTML = '';
                 return;
             }
+            titleEl.value = node.title || '';
+            contentEl.value = node.contentMarkdown || '';
+            contentEl.hidden = editorMode !== 'edit';
+            previewEl.hidden = editorMode === 'edit';
+            const preview = node.contentMarkdown || 'This node is stored in the NxTree database. Editing will use revisioned operations in the next milestone.';
+            previewEl.innerHTML = markdownToHtml(preview);
+        }
 
-            nodeTitle.value = node.title || '';
-            nodeContent.value = node.contentMarkdown || '';
-            nodeContent.hidden = editorMode !== 'edit';
-            nodePreview.hidden = editorMode === 'edit';
-            nodePreview.innerHTML = markdownToHtml(node.contentMarkdown || 'This root node is stored in the NxTree database. Node editing is the next milestone.');
+        function selectNode(id) {
+            selectedNodeId = id;
+            renderTree();
+            renderSelectedNode();
         }
 
         function setEditorMode(mode) {
             editorMode = mode;
             editModeButton.textContent = mode === 'edit' ? 'Preview' : 'Edit';
+            editModeButton.classList.toggle('active', mode === 'edit');
             editModeButton.setAttribute('aria-pressed', mode === 'edit' ? 'true' : 'false');
             renderSelectedNode();
         }
 
+        function expandSelectedBranch() {
+            const node = selectedNode();
+            if (!node) {
+                setStatus('Select a branch to expand');
+                return;
+            }
+            expandSubtree(node);
+            renderTree();
+            setStatus('Expanded branch');
+        }
+
+        function collapseSelectedBranch() {
+            const node = selectedNode();
+            if (!node) {
+                setStatus('Select a branch to collapse');
+                return;
+            }
+            collapseSubtree(node);
+            renderTree();
+            setStatus('Collapsed branch');
+        }
+
         function loadTree(treeId) {
             setStatus('Loading tree...');
-            return fetch(endpoint('/trees/' + encodeURIComponent(treeId)), {
-                headers: requestHeaders()
-            }).then(function (response) {
-                return response.json().then(function (data) {
+            return fetch(endpoint('/trees/' + encodeURIComponent(treeId)), { headers: requestHeaders() })
+                .then(response => response.json().then(data => {
                     if (!response.ok) {
                         throw new Error(data.error || 'Could not load tree');
                     }
-
                     return data;
-                });
-            }).then(function (data) {
-                currentTree = data.tree;
-                selectedNodeId = currentTree.rootNodeId;
-                currentTitle.textContent = currentTree.title || 'Untitled tree';
-                revision.textContent = 'Revision ' + currentTree.revision;
-                renderNodes();
-                setEditorMode('preview');
-                setStatus('Loaded database tree revision ' + currentTree.revision + '.');
-            }).catch(function (error) {
-                setStatus(error.message);
-            });
+                }))
+                .then(data => {
+                    currentTree = data.tree;
+                    selectedNodeId = currentTree.rootNodeId;
+                    collapsedIds.clear();
+                    revisionEl.textContent = `Revision ${currentTree.revision}`;
+                    renderTree();
+                    setEditorMode('preview');
+                    runSearch();
+                    setStatus(`Loaded ${currentTree.title || 'Untitled tree'} (${currentTree.nodes.length} node(s)).`);
+                })
+                .catch(error => setStatus(error.message));
         }
 
         function loadTrees() {
-            return fetch(endpoint('/trees'), {
-                headers: requestHeaders()
-            }).then(function (response) {
-                if (!response.ok) {
-                    throw new Error('Could not load trees');
-                }
-
-                return response.json();
-            }).then(function (data) {
-                trees = Array.isArray(data.trees) ? data.trees : [];
-                if (trees.length > 0 && selectedTreeId === null) {
-                    selectedTreeId = trees[0].id;
-                    loadTree(trees[0].id);
-                }
-                renderTrees();
-                setStatus(trees.length > 0 ? 'Loaded ' + trees.length + ' tree(s).' : 'Create your first database-backed tree.');
-            }).catch(function (error) {
-                setStatus(error.message);
-            });
+            return fetch(endpoint('/trees'), { headers: requestHeaders() })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Could not load trees');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    trees = Array.isArray(data.trees) ? data.trees : [];
+                    renderTreeList();
+                    if (trees.length > 0 && selectedTreeId === null) {
+                        selectedTreeId = trees[0].id;
+                        renderTreeList();
+                        return loadTree(trees[0].id);
+                    }
+                    if (trees.length === 0) {
+                        renderTree();
+                        setStatus('Create or import your first database-backed tree.');
+                    }
+                    return null;
+                })
+                .catch(error => setStatus(error.message));
         }
 
         function createTree() {
-            var title = window.prompt('Tree title', 'Untitled tree');
+            const title = window.prompt('Tree title', 'Untitled tree');
             if (title === null) {
                 return;
             }
-
-            var body = new URLSearchParams();
+            const body = new URLSearchParams();
             body.set('title', title);
             newTreeButton.disabled = true;
             setStatus('Creating tree...');
-
-            fetch(endpoint('/trees'), {
-                method: 'POST',
-                headers: requestHeaders(),
-                body: body
-            }).then(function (response) {
-                return response.json().then(function (data) {
+            fetch(endpoint('/trees'), { method: 'POST', headers: requestHeaders(), body })
+                .then(response => response.json().then(data => {
                     if (!response.ok) {
                         throw new Error(data.error || 'Could not create tree');
                     }
-
                     return data;
+                }))
+                .then(data => {
+                    trees.unshift(data.tree);
+                    selectedTreeId = data.tree.id;
+                    renderTreeList();
+                    return loadTree(data.tree.id);
+                })
+                .catch(error => setStatus(error.message))
+                .finally(() => {
+                    newTreeButton.disabled = false;
+                    fileMenu.hidden = true;
                 });
-            }).then(function (data) {
-                trees.unshift(data.tree);
-                selectedTreeId = data.tree.id;
-                renderTrees();
-                loadTree(data.tree.id);
-            }).catch(function (error) {
-                setStatus(error.message);
-            }).finally(function () {
-                newTreeButton.disabled = false;
-            });
         }
 
         function importTree(file) {
             if (!file) {
                 return;
             }
-
-            var body = new FormData();
+            const body = new FormData();
             body.append('file', file);
             newTreeButton.disabled = true;
             importFile.disabled = true;
-            setStatus('Importing ' + file.name + '...');
-
-            fetch(endpoint('/import'), {
-                method: 'POST',
-                headers: requestHeaders(),
-                body: body
-            }).then(function (response) {
-                return response.json().then(function (data) {
+            setStatus(`Importing ${file.name}...`);
+            fetch(endpoint('/import'), { method: 'POST', headers: requestHeaders(), body })
+                .then(response => response.json().then(data => {
                     if (!response.ok) {
                         throw new Error(data.error || 'Could not import tree');
                     }
-
                     return data;
+                }))
+                .then(data => {
+                    trees = trees.filter(tree => tree.id !== data.tree.id);
+                    trees.unshift(data.tree);
+                    selectedTreeId = data.tree.id;
+                    renderTreeList();
+                    currentTree = data.tree;
+                    selectedNodeId = currentTree.rootNodeId;
+                    collapsedIds.clear();
+                    revisionEl.textContent = `Revision ${currentTree.revision}`;
+                    renderTree();
+                    setEditorMode('preview');
+                    setStatus(`Imported ${data.tree.nodes.length} node(s) from ${file.name}.`);
+                })
+                .catch(error => setStatus(error.message))
+                .finally(() => {
+                    newTreeButton.disabled = false;
+                    importFile.disabled = false;
+                    importFile.value = '';
+                    fileMenu.hidden = true;
                 });
-            }).then(function (data) {
-                trees = trees.filter(function (tree) {
-                    return tree.id !== data.tree.id;
+        }
+
+        function runSearch() {
+            const query = searchInput.value.trim().toLowerCase();
+            searchResults.textContent = '';
+            if (!query || !currentTree || !Array.isArray(currentTree.nodes)) {
+                return;
+            }
+            currentTree.nodes.filter(node => `${node.title || ''}\n${node.contentMarkdown || ''}`.toLowerCase().includes(query)).forEach(node => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'nxtree-search-result';
+                button.textContent = node.title || 'Untitled node';
+                button.addEventListener('click', () => {
+                    let current = findNode(node.id);
+                    while (current && current.parentId !== null) {
+                        collapsedIds.delete(String(current.parentId));
+                        current = findNode(current.parentId);
+                    }
+                    selectNode(node.id);
+                    searchPanel.hidden = true;
                 });
-                trees.unshift(data.tree);
-                selectedTreeId = data.tree.id;
-                currentTree = data.tree;
-                selectedNodeId = currentTree.rootNodeId;
-                currentTitle.textContent = currentTree.title || 'Imported tree';
-                revision.textContent = 'Revision ' + currentTree.revision;
-                renderTrees();
-                renderNodes();
-                setEditorMode('preview');
-                setStatus('Imported ' + data.tree.nodes.length + ' node(s) from ' + file.name + '.');
-            }).catch(function (error) {
-                setStatus(error.message);
-            }).finally(function () {
-                newTreeButton.disabled = false;
-                importFile.disabled = false;
-                importFile.value = '';
+                searchResults.appendChild(button);
             });
         }
 
+        fileToggle.addEventListener('click', () => {
+            fileMenu.hidden = !fileMenu.hidden;
+        });
         newTreeButton.addEventListener('click', createTree);
-        importFile.addEventListener('change', function () {
-            importTree(importFile.files && importFile.files.length > 0 ? importFile.files[0] : null);
+        importFile.addEventListener('change', () => importTree(importFile.files && importFile.files.length > 0 ? importFile.files[0] : null));
+        editModeButton.addEventListener('click', () => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit'));
+        expandButton.addEventListener('click', expandSelectedBranch);
+        collapseButton.addEventListener('click', collapseSelectedBranch);
+        searchToggle.addEventListener('click', () => {
+            searchPanel.hidden = !searchPanel.hidden;
+            if (!searchPanel.hidden) {
+                searchInput.focus();
+            }
         });
-        editModeButton.addEventListener('click', function () {
-            setEditorMode(editorMode === 'edit' ? 'preview' : 'edit');
+        searchClose.addEventListener('click', () => {
+            searchPanel.hidden = true;
         });
+        searchInput.addEventListener('input', runSearch);
+
+        initDivider();
         loadTrees();
         app.dataset.ready = 'true';
     });

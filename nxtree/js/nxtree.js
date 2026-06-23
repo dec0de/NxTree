@@ -311,10 +311,10 @@
                     continue;
                 }
 
-                const paragraph = [line.trim()];
+                const paragraph = [line];
                 i++;
                 while (i < lines.length && lines[i].trim() !== '' && !isMarkdownBlockStart(lines[i])) {
-                    paragraph.push(lines[i].trim());
+                    paragraph.push(lines[i]);
                     i++;
                 }
                 html.push(`<p>${renderInlineMarkdown(paragraph.join('\n')).replace(/\n/g, '<br>')}</p>`);

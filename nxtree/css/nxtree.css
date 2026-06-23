@@ -380,6 +380,13 @@
 
 .nxtree-markdown-preview {
     overflow: auto;
+    tab-size: 4;
+}
+
+.nxtree-markdown-preview p,
+.nxtree-markdown-preview li,
+.nxtree-markdown-preview blockquote {
+    white-space: pre-wrap;
 }
 
 .nxtree-markdown-preview[hidden],

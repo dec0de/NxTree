@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.15
+
+- Preserve line indentation, tabs, repeated spaces, and line breaks in Markdown preview paragraphs.
+
 ## 0.9.14
 
 - Reserve `_directory01_` so users cannot create or save a tree/file with the internal directory-tree name.

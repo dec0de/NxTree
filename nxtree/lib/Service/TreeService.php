@@ -61,6 +61,9 @@ final class TreeService {
         if (mb_strlen($title) > 255) {
             throw new InvalidArgumentException('Tree title must be 255 characters or fewer');
         }
+        if ($this->isReservedLibraryName($title)) {
+            throw new InvalidArgumentException('"_directory01_" is reserved for the NxTree Library');
+        }
 
         $now = time();
         $this->db->beginTransaction();
@@ -246,6 +249,9 @@ final class TreeService {
             if ($libraryName === '') {
                 $libraryName = $this->normaliseLibraryName((string)($tree['library_name'] ?? '') ?: $this->treeTitle($treeId));
             }
+            if ($this->isReservedLibraryName($libraryName)) {
+                throw new InvalidArgumentException('"_directory01_" is reserved for the NxTree Library');
+            }
 
             $directoryTreeId = $this->ensureDirectoryTree($userId);
             $directory = $this->treeRow($directoryTreeId);
@@ -402,6 +408,9 @@ final class TreeService {
 
             $newRevision = $currentRevision + 1;
             if ((string)($node['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_TREE_FILE) {
+                if ($this->isReservedLibraryName($title)) {
+                    throw new InvalidArgumentException('"_directory01_" is reserved for the NxTree Library');
+                }
                 $contentMarkdown = '';
             }
             $this->updateNodeRow($nodeId, $title, $contentMarkdown, (int)$node['version'] + 1, $now);
@@ -1490,6 +1499,10 @@ final class TreeService {
         }
 
         return mb_substr($name, 0, 255);
+    }
+
+    private function isReservedLibraryName(string $name): bool {
+        return strtolower($this->normaliseLibraryName($name)) === self::DIRECTORY_TREE_TITLE;
     }
 
     /**

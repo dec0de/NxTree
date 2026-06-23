@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.14
+
+- Reserve `_directory01_` so users cannot create or save a tree/file with the internal directory-tree name.
+
 ## 0.9.13
 
 - Move Back out of the File menu so users can return from `_directory01_` immediately after Load.

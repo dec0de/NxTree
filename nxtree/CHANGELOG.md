@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.17
+
+- Downsize the App Store screenshot for faster loading.
+
 ## 0.9.16
 
 - Add an App Store screenshot for the NxTree interface.

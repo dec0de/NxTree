@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.16
+
+- Add an App Store screenshot for the NxTree interface.
+
 ## 0.9.15
 
 - Preserve line indentation, tabs, repeated spaces, and line breaks in Markdown preview paragraphs.

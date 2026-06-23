@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.10
+
+- Restrict virtual folder/file rendering and behavior to the special `_directory01_` directory tree only.
+
 ## 0.9.9
 
 - Replace the virtual Tree Library browser with a special `_directory01_` NxTree database tree.

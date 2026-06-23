@@ -102,6 +102,14 @@
             saveStateEl.textContent = message;
         }
 
+        function isDirectoryTreeLoaded() {
+            return currentTree && (currentTree.isDirectoryTree === true || currentTree.isDirectoryTree === 1 || currentTree.isDirectoryTree === '1');
+        }
+
+        function isDirectoryFileNode(node) {
+            return isDirectoryTreeLoaded() && node && node.nodeKind === 'tree_file' && node.linkedTreeId;
+        }
+
         function initDivider() {
             const storedWidth = localStorage.getItem(sidebarWidthStorageKey);
             if (storedWidth) {
@@ -642,9 +650,9 @@
 
                 const button = document.createElement('button');
                 button.type = 'button';
-                const isTreeFile = node.nodeKind === 'tree_file' && node.linkedTreeId;
+                const isTreeFile = isDirectoryFileNode(node);
                 row.classList.toggle('nxtree-directory-file-row', isTreeFile);
-                row.classList.toggle('nxtree-directory-folder-row', currentTree && currentTree.isDirectoryTree && !isTreeFile);
+                row.classList.toggle('nxtree-directory-folder-row', isDirectoryTreeLoaded() && !isTreeFile);
                 button.textContent = isTreeFile ? `${node.title || 'Untitled tree'}.nxtree` : (node.title || 'Untitled node');
                 button.classList.toggle('active', String(node.id) === String(selectedNodeId));
                 button.addEventListener('click', () => {
@@ -697,7 +705,7 @@
                 contentEl.disabled = true;
                 return;
             }
-            const isTreeFile = node.nodeKind === 'tree_file';
+            const isTreeFile = isDirectoryFileNode(node);
             titleEl.disabled = false;
             contentEl.disabled = isTreeFile;
             titleEl.value = node.title || '';
@@ -711,7 +719,7 @@
         function selectNode(id) {
             selectedNodeId = id;
             const node = selectedNode();
-            if (currentTree && currentTree.isDirectoryTree && node && node.nodeKind !== 'tree_file') {
+            if (isDirectoryTreeLoaded() && node && !isDirectoryFileNode(node)) {
                 directoryTargetFolderId = node.id;
             }
             renderTree();
@@ -756,7 +764,7 @@
             if (!node) {
                 return;
             }
-            if (node.nodeKind === 'tree_file') {
+            if (isDirectoryFileNode(node)) {
                 node.contentMarkdown = '';
                 return;
             }
@@ -783,7 +791,7 @@
             if (!node) {
                 return;
             }
-            if (node.nodeKind === 'tree_file') {
+            if (isDirectoryFileNode(node)) {
                 node.contentMarkdown = '';
             }
             const body = new URLSearchParams();
@@ -961,7 +969,7 @@
                 setStatus('Select a parent node first');
                 return;
             }
-            if (parent.nodeKind === 'tree_file') {
+            if (isDirectoryFileNode(parent)) {
                 setStatus('Virtual files cannot contain folders');
                 return;
             }
@@ -995,7 +1003,7 @@
             if ((node.children || []).length > 0 && !window.confirm('Delete this node and all child nodes?')) {
                 return;
             }
-            if (node.nodeKind === 'tree_file' && !window.confirm(`Remove ${node.title || 'this virtual file'}.nxtree from the library? The database tree will not be deleted.`)) {
+            if (isDirectoryFileNode(node) && !window.confirm(`Remove ${node.title || 'this virtual file'}.nxtree from the library? The database tree will not be deleted.`)) {
                 return;
             }
             pushUndoState();
@@ -1084,7 +1092,7 @@
                 }))
                 .then(data => {
                     currentTree = data.tree;
-                    if (currentTree.isDirectoryTree) {
+                    if (isDirectoryTreeLoaded()) {
                         directoryTreeId = currentTree.id;
                         directoryTargetFolderId = currentTree.rootNodeId;
                     }
@@ -1309,7 +1317,7 @@
                 setStatus('Open a tree before saving');
                 return;
             }
-            if (currentTree.isDirectoryTree) {
+            if (isDirectoryTreeLoaded()) {
                 setStatus('The NxTree Library saves itself automatically');
                 return;
             }

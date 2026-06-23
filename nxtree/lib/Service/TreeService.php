@@ -1465,7 +1465,7 @@ final class TreeService {
             'lastExportFolderPath' => $row['last_export_folder_path'] === null ? null : (string)$row['last_export_folder_path'],
             'libraryPath' => $row['library_path'] === null ? null : (string)$row['library_path'],
             'libraryName' => $row['library_name'] === null ? null : (string)$row['library_name'],
-            'isDirectoryTree' => (string)$row['title'] === self::DIRECTORY_TREE_TITLE ? 1 : 0,
+            'isDirectoryTree' => (string)$row['title'] === self::DIRECTORY_TREE_TITLE,
         ];
     }
 

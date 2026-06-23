@@ -29,6 +29,7 @@
         const fileMenu = document.getElementById('nxtree-file-menu');
         const newTreeButton = document.getElementById('nxtree-new-tree');
         const loadTreeButton = document.getElementById('nxtree-load-tree');
+        const backTreeButton = document.getElementById('nxtree-back-tree');
         const saveTreeButton = document.getElementById('nxtree-save-tree');
         const importFilesButton = document.getElementById('nxtree-import-files');
         const exportFilesButton = document.getElementById('nxtree-export-files');
@@ -91,6 +92,7 @@
         let currentLibraryPath = '/NxTree';
         let directoryTreeId = null;
         let directoryTargetFolderId = null;
+        let previousTreeId = null;
         const undoStack = [];
         const collapsedIds = new Set();
 
@@ -100,6 +102,10 @@
 
         function setSaveState(message) {
             saveStateEl.textContent = message;
+        }
+
+        function updateBackButton() {
+            backTreeButton.disabled = previousTreeId === null;
         }
 
         function isDirectoryTreeLoaded() {
@@ -1291,6 +1297,10 @@
         }
 
         function openTreeLibrary() {
+            if (currentTree && !isDirectoryTreeLoaded()) {
+                previousTreeId = currentTree.id;
+                updateBackButton();
+            }
             setStatus('Loading NxTree Library...');
             fetch(endpoint('/directory'), {
                 method: 'POST',
@@ -1321,6 +1331,19 @@
                     setStatus('Loaded NxTree Library. Select a folder as the Save target or click a .nxtree file to open it.');
                 })
                 .catch(error => setStatus(error.message));
+        }
+
+        function returnToPreviousTree() {
+            if (previousTreeId === null) {
+                setStatus('No previous tree to return to');
+                return;
+            }
+            const treeId = previousTreeId;
+            previousTreeId = null;
+            updateBackButton();
+            fileMenu.hidden = true;
+            setStatus('Returning to previous tree...');
+            loadTree(treeId);
         }
 
         function saveTreeToLibrary() {
@@ -1528,6 +1551,7 @@
         });
         newTreeButton.addEventListener('click', createTree);
         loadTreeButton.addEventListener('click', openTreeLibrary);
+        backTreeButton.addEventListener('click', returnToPreviousTree);
         saveTreeButton.addEventListener('click', saveTreeToLibrary);
         importFilesButton.addEventListener('click', importTreeFromFiles);
         exportFilesButton.addEventListener('click', exportMtreToFiles);
@@ -1571,6 +1595,7 @@
         makePanelDraggable(searchPanel, searchPanelHeader);
         makePanelDraggable(filesPanel, filesPanelHeader);
         loadTrees();
+        updateBackButton();
         app.dataset.ready = 'true';
     });
 })();

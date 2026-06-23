@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.12
+
+- Add a Back action after Load so users can return from `_directory01_` to the previously open tree without choosing a file.
+
 ## 0.9.11
 
 - Keep directory Folder/File prefixes off branch expand/collapse controls.

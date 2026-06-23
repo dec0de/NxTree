@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.13
+
+- Move Back out of the File menu so users can return from `_directory01_` immediately after Load.
+
 ## 0.9.12
 
 - Add a Back action after Load so users can return from `_directory01_` to the previously open tree without choosing a file.

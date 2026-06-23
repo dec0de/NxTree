@@ -5,12 +5,12 @@
         <header class="nxtree-header">
             <h2>NxTree</h2>
             <button type="button" id="nxtree-file-toggle">File</button>
+            <button type="button" id="nxtree-back-tree" title="Return to the tree that was open before Load" hidden disabled>Back</button>
             <button type="button" id="nxtree-search-toggle">Search</button>
         </header>
         <div id="nxtree-file-menu" class="nxtree-file-actions" hidden>
             <button type="button" id="nxtree-new-tree">Create New Tree</button>
             <button type="button" id="nxtree-load-tree" title="Load a database tree from the virtual NxTree Library">Load</button>
-            <button type="button" id="nxtree-back-tree" title="Return to the tree that was open before Load" disabled>Back</button>
             <button type="button" id="nxtree-save-tree" title="Save this database tree into the current virtual folder">Save</button>
             <button type="button" id="nxtree-import-files">Import from Files</button>
             <button type="button" id="nxtree-export-files" title="Save the selected branch to Nextcloud Files">Export to Files</button>

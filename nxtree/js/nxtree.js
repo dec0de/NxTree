@@ -105,7 +105,9 @@
         }
 
         function updateBackButton() {
-            backTreeButton.disabled = previousTreeId === null;
+            const disabled = previousTreeId === null;
+            backTreeButton.disabled = disabled;
+            backTreeButton.hidden = disabled;
         }
 
         function isDirectoryTreeLoaded() {

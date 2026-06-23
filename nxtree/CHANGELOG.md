@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.11
+
+- Keep directory Folder/File prefixes off branch expand/collapse controls.
+- Display virtual file names from the linked tree title when the directory entry has only a placeholder title.
+
 ## 0.9.10
 
 - Restrict virtual folder/file rendering and behavior to the special `_directory01_` directory tree only.

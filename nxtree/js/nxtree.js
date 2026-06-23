@@ -505,6 +505,16 @@
             return String(tree.libraryName || tree.title || 'Untitled tree').replace(/\.(nxtree|mtre)$/i, '').trim() || 'Untitled tree';
         }
 
+        function directoryFileName(node) {
+            const title = String(node.title || '').replace(/\.(nxtree|mtre)$/i, '').trim();
+            if (title !== '' && title !== 'Untitled tree') {
+                return title;
+            }
+
+            const linkedTree = trees.find(tree => String(tree.id) === String(node.linkedTreeId));
+            return linkedTree ? treeLibraryName(linkedTree) : 'Untitled tree';
+        }
+
         function treeMeta(tree) {
             if (tree.libraryPath) {
                 return `NxTree database · Revision ${tree.revision || 0}`;
@@ -650,10 +660,11 @@
 
                 const button = document.createElement('button');
                 button.type = 'button';
+                button.className = 'nxtree-tree-label';
                 const isTreeFile = isDirectoryFileNode(node);
                 row.classList.toggle('nxtree-directory-file-row', isTreeFile);
                 row.classList.toggle('nxtree-directory-folder-row', isDirectoryTreeLoaded() && !isTreeFile);
-                button.textContent = isTreeFile ? `${node.title || 'Untitled tree'}.nxtree` : (node.title || 'Untitled node');
+                button.textContent = isTreeFile ? `${directoryFileName(node)}.nxtree` : (node.title || 'Untitled node');
                 button.classList.toggle('active', String(node.id) === String(selectedNodeId));
                 button.addEventListener('click', () => {
                     if (isTreeFile) {
@@ -708,7 +719,7 @@
             const isTreeFile = isDirectoryFileNode(node);
             titleEl.disabled = false;
             contentEl.disabled = isTreeFile;
-            titleEl.value = node.title || '';
+            titleEl.value = isTreeFile ? directoryFileName(node) : (node.title || '');
             contentEl.value = isTreeFile ? 'Virtual NxTree file. Click it in the tree to load the linked database tree.' : (node.contentMarkdown || '');
             contentEl.hidden = editorMode !== 'edit';
             previewEl.hidden = editorMode === 'edit';

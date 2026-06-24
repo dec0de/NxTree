@@ -43,6 +43,23 @@ NxTree should make it safe for multiple people to view and edit the same tree. T
 - Presence and soft locks before full CRDT text editing.
 - MeeTree remains stable and simple; NxTree can evolve as the collaborative app.
 
+## Virtual Directory Tree
+
+NxTree stores live data in the Nextcloud database, not as `.nxtree` files in the user's Nextcloud Files storage.
+
+To keep the app familiar, NxTree still presents a file-and-folder workflow. It does this with a special internal database tree named `_directory01_`. That tree acts as a virtual directory:
+
+- folder entries are stored as normal NxTree nodes with `node_kind = folder`
+- `.nxtree` file entries are stored as normal NxTree nodes with `node_kind = tree_file`
+- each virtual `.nxtree` file points to a real database-backed tree through `linked_tree_id`
+- moving, renaming, deleting, and sorting folders/files are database operations, not filesystem operations
+
+When users click **Load**, they browse this database-backed directory simulation. When they open a `.nxtree` entry, NxTree loads the linked database tree.
+
+The `.nxtree` entries are not real files on disk. They are file-like handles to database trees. This is the small trick that makes NxTree feel file-based without becoming file-bound.
+
+Portable `.mtre` files remain real import/export files through Nextcloud Files. They are used for backups, interchange, and compatibility with MeeTree, but they are not NxTree's live storage format.
+
 ## Initial Architecture
 
 NxTree will use the Nextcloud database as its live source of truth.

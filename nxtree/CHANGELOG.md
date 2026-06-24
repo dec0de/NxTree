@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.21
+
+- Preserve single line breaks in Markdown preview text.
+
 ## 0.9.20
 
 - Restore visible bullets and numbers for Markdown lists in preview.

@@ -46,7 +46,7 @@
             html: false,
             linkify: true,
             typographer: false,
-            breaks: false,
+            breaks: true,
         });
         installTaskLists(md);
         return md;

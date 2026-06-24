@@ -385,7 +385,7 @@
 .nxtree-markdown-preview {
     overflow: auto;
     color: var(--color-main-text, var(--color-text-maxcontrast));
-    font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font: 15px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     tab-size: 4;
 }
 
@@ -428,6 +428,10 @@
 
 .nxtree-markdown-preview li + li {
     margin-top: 0.25em;
+}
+
+.nxtree-markdown-preview .tree-markdown-spacer {
+    height: 1.55em;
 }
 
 .nxtree-markdown-preview ul,

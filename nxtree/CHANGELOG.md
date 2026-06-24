@@ -1,9 +1,15 @@
 # Changelog
 
+## 0.9.19
+
+- Preserve repeated blank lines as visible spacing in Markdown preview.
+- Use a monospace font for Markdown preview text.
+
 ## 0.9.18
 
 - Use the shared TreeMarkdown renderer based on markdown-it so Markdown preview matches Nextcloud `.md` rendering more closely.
 - Align Markdown preview styling with MeeTree for compatible tree content display.
+- Fall back safely if the Markdown renderer script is unavailable.
 
 ## 0.9.17
 

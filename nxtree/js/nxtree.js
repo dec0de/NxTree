@@ -193,6 +193,23 @@
             });
         }
 
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;',
+            })[char]);
+        }
+
+        function renderMarkdownPreview(markdown) {
+            if (window.TreeMarkdown && typeof window.TreeMarkdown.render === 'function') {
+                return window.TreeMarkdown.render(markdown);
+            }
+            return `<p>${escapeHtml(markdown || '')}</p>`;
+        }
+
         function buildNodeTree() {
             if (!currentTree || !Array.isArray(currentTree.nodes)) {
                 return [];
@@ -602,7 +619,7 @@
             contentEl.hidden = editorMode !== 'edit';
             previewEl.hidden = editorMode === 'edit';
             const preview = isTreeFile ? `Virtual NxTree file linked to database tree ${node.linkedTreeId}.` : (node.contentMarkdown || 'This node is stored in the NxTree database. Editing will use revisioned operations in the next milestone.');
-            previewEl.innerHTML = window.TreeMarkdown.render(preview);
+            previewEl.innerHTML = renderMarkdownPreview(preview);
         }
 
         function selectNode(id) {
@@ -659,7 +676,7 @@
             }
             renderTree();
             if (editorMode === 'preview') {
-                previewEl.innerHTML = window.TreeMarkdown.render(node.contentMarkdown || '');
+                previewEl.innerHTML = renderMarkdownPreview(node.contentMarkdown || '');
             }
             markDirty();
         }

@@ -54,12 +54,33 @@
 
     const renderer = createRenderer();
 
+    function renderWithPreservedBlankLines(markdown) {
+        const parts = String(markdown || '').replace(/\r\n?/g, '\n').split(/(\n[ \t]*\n(?:[ \t]*\n)*)/);
+        let html = '';
+
+        for (const part of parts) {
+            if (!part) {
+                continue;
+            }
+            if (/^\n[ \t]*\n/.test(part)) {
+                const blankLines = part.split('\n').length - 2;
+                for (let i = 1; i < blankLines; i++) {
+                    html += '<div class="tree-markdown-spacer" aria-hidden="true"></div>';
+                }
+                continue;
+            }
+            html += renderer.render(part);
+        }
+
+        return html;
+    }
+
     window.TreeMarkdown = {
         render(markdown) {
             if (!renderer) {
                 return `<p>${escapeHtml(markdown || '')}</p>`;
             }
-            return renderer.render(String(markdown || ''));
+            return renderWithPreservedBlankLines(markdown);
         },
     };
 })();

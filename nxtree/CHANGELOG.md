@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.20
+
+- Restore visible bullets and numbers for Markdown lists in preview.
+
 ## 0.9.19
 
 - Preserve repeated blank lines as visible spacing in Markdown preview.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.23
+
+- Add a small App Store screenshot thumbnail for app list previews in Nextcloud.
+
 ## 0.9.22
 
 - Document the virtual directory tree model used for database-backed NxTree files and folders.

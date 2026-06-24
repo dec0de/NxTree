@@ -378,15 +378,15 @@
     line-height: 1.6;
 }
 
-.nxtree-markdown-preview {
-    overflow: auto;
-    tab-size: 4;
+#nxtree-node-content {
+    font: 15px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-.nxtree-markdown-preview p,
-.nxtree-markdown-preview li,
-.nxtree-markdown-preview blockquote {
-    white-space: pre-wrap;
+.nxtree-markdown-preview {
+    overflow: auto;
+    color: var(--color-main-text, var(--color-text-maxcontrast));
+    font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    tab-size: 4;
 }
 
 .nxtree-markdown-preview[hidden],
@@ -394,14 +394,98 @@
     display: none;
 }
 
-.nxtree-markdown-preview h1,
-.nxtree-markdown-preview h2,
-.nxtree-markdown-preview h3 {
-    margin: 0.8em 0 0.4em;
+.nxtree-markdown-preview > :first-child {
+    margin-top: 0;
 }
 
-.nxtree-markdown-preview p:first-child {
-    margin-top: 0;
+.nxtree-markdown-preview > :last-child {
+    margin-bottom: 0;
+}
+
+.nxtree-markdown-preview h1,
+.nxtree-markdown-preview h2,
+.nxtree-markdown-preview h3,
+.nxtree-markdown-preview h4,
+.nxtree-markdown-preview h5,
+.nxtree-markdown-preview h6 {
+    margin: 1.1em 0 0.35em;
+    font-weight: 650;
+    line-height: 1.25;
+}
+
+.nxtree-markdown-preview h1 { font-size: 1.8em; }
+.nxtree-markdown-preview h2 { font-size: 1.45em; }
+.nxtree-markdown-preview h3 { font-size: 1.2em; }
+
+.nxtree-markdown-preview p,
+.nxtree-markdown-preview ul,
+.nxtree-markdown-preview ol,
+.nxtree-markdown-preview blockquote,
+.nxtree-markdown-preview pre,
+.nxtree-markdown-preview table {
+    margin: 0 0 0.85em;
+}
+
+.nxtree-markdown-preview li + li {
+    margin-top: 0.25em;
+}
+
+.nxtree-markdown-preview ul,
+.nxtree-markdown-preview ol {
+    padding-left: 1.6em;
+}
+
+.nxtree-markdown-preview blockquote {
+    padding: 0.1em 0 0.1em 1em;
+    color: var(--color-text-maxcontrast);
+    border-left: 4px solid var(--color-border);
+}
+
+.nxtree-markdown-preview code,
+.nxtree-markdown-preview pre {
+    border-radius: 6px;
+    background: var(--color-background-hover);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.nxtree-markdown-preview code {
+    padding: 0.1em 0.3em;
+}
+
+.nxtree-markdown-preview pre {
+    padding: 12px;
+    overflow: auto;
+}
+
+.nxtree-markdown-preview pre code {
+    padding: 0;
+    background: transparent;
+}
+
+.nxtree-markdown-preview table {
+    display: block;
+    max-width: 100%;
+    overflow: auto;
+    border-collapse: collapse;
+}
+
+.nxtree-markdown-preview th,
+.nxtree-markdown-preview td {
+    padding: 0.4em 0.65em;
+    border: 1px solid var(--color-border);
+}
+
+.nxtree-markdown-preview th {
+    background: var(--color-background-hover);
+    font-weight: 600;
+}
+
+.nxtree-markdown-preview .task-list-item {
+    list-style: none;
+}
+
+.nxtree-markdown-preview input[type="checkbox"] {
+    margin-right: 0.45em;
 }
 
 #nxtree-status {

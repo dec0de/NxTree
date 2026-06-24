@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.18
+
+- Use the shared TreeMarkdown renderer based on markdown-it so Markdown preview matches Nextcloud `.md` rendering more closely.
+- Align Markdown preview styling with MeeTree for compatible tree content display.
+
 ## 0.9.17
 
 - Downsize the App Store screenshot for faster loading.

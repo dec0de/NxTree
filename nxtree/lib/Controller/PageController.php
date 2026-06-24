@@ -23,6 +23,8 @@ class PageController extends Controller {
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function index(): TemplateResponse {
+        Util::addScript('nxtree', 'markdown-it.min');
+        Util::addScript('nxtree', 'tree-markdown');
         Util::addScript('nxtree', 'nxtree');
         Util::addStyle('nxtree', 'nxtree');
 

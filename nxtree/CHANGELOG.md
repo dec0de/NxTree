@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.22
+
+- Document the virtual directory tree model used for database-backed NxTree files and folders.
+
 ## 0.9.21
 
 - Preserve single line breaks in Markdown preview text.

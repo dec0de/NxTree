@@ -911,7 +911,7 @@
             if ((node.children || []).length > 0 && !window.confirm('Delete this node and all child nodes?')) {
                 return;
             }
-            if (isDirectoryFileNode(node) && !window.confirm(`Remove ${directoryFileName(node)} from the library? The database tree will not be deleted.`)) {
+            if (isDirectoryFileNode(node) && !window.confirm(`Delete ${directoryFileName(node)} and all its notes? A backup will first be saved to /NxTree/Backups.`)) {
                 return;
             }
             pushUndoState();
@@ -920,7 +920,7 @@
                 .then(data => {
                     collapsedIds.delete(String(node.id));
                     applyTreeResult(data, nextSelection);
-                    setStatus('Deleted node');
+                    setStatus(isDirectoryFileNode(node) ? 'Deleted tree after backup' : 'Deleted node');
                 })
                 .catch(error => {
                     undoStack.pop();

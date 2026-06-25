@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.39
+
+- Back up virtual files to `/NxTree/Backups` before deleting their linked database tree.
+- Keep the latest five soft-deleted trees for quick recovery and purge older deleted tree data.
+
 ## 0.9.38
 
 - Open newly created trees immediately after creating them from File view.

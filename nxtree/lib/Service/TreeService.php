@@ -15,6 +15,8 @@ use UnexpectedValueException;
 
 final class TreeService {
     private const DEFAULT_EXPORT_FOLDER = '/NxTree';
+    private const BACKUP_EXPORT_FOLDER = '/NxTree/Backups';
+    private const DELETED_TREE_RETENTION_COUNT = 5;
     private const DIRECTORY_TREE_TITLE = '_directory01_';
     private const DIRECTORY_ROOT_TITLE = 'NxTree Library';
     private const NODE_KIND_NOTE = 'note';
@@ -134,6 +136,7 @@ final class TreeService {
         $this->removeDirectorySelfLinks($directoryTreeId);
         $this->restoreDirectoryFoldersDeletedByCleanup($directoryTreeId);
         $this->removeLegacyDirectoryEntries($directoryTreeId);
+        $this->purgeOldDeletedTrees($userId, self::DELETED_TREE_RETENTION_COUNT);
 
         return $this->loadedTree($userId, $directoryTreeId);
     }
@@ -538,7 +541,21 @@ final class TreeService {
             foreach ($deletedIds as $id) {
                 $deletedNode = $this->nodeRow($id);
                 if ($deletedNode !== null && (string)($deletedNode['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_TREE_FILE && $deletedNode['linked_tree_id'] !== null) {
-                    $this->clearTreeLibraryFile((int)$deletedNode['linked_tree_id']);
+                    $linkedTreeId = (int)$deletedNode['linked_tree_id'];
+                    $linkedTree = $this->treeRow($linkedTreeId);
+                    if ($linkedTree === null) {
+                        continue;
+                    }
+                    if ((string)$linkedTree['owner_user_id'] !== $userId) {
+                        throw new InvalidArgumentException('Linked tree not found');
+                    }
+                    if ($this->treeTitle($linkedTreeId) === self::DIRECTORY_TREE_TITLE) {
+                        throw new InvalidArgumentException('The directory tree cannot be deleted');
+                    }
+                    $this->backupTreeToFiles($userId, $linkedTreeId, $now);
+                    $this->softDeleteDirectoryFilesForTree($treeId, $linkedTreeId, $now);
+                    $this->softDeleteTree($linkedTreeId, $now);
+                    $this->purgeOldDeletedTrees($userId, self::DELETED_TREE_RETENTION_COUNT);
                 }
             }
             foreach ($deletedIds as $id) {
@@ -883,13 +900,97 @@ final class TreeService {
             ->executeStatement();
     }
 
-    private function clearTreeLibraryFile(int $treeId): void {
+    private function backupTreeToFiles(string $userId, int $treeId, int $now): string {
+        $export = $this->exportMtre($userId, $treeId);
+        if ($export === null) {
+            throw new InvalidArgumentException('Could not create backup before deleting tree');
+        }
+
+        $folder = $this->getOrCreateUserFolder($userId, self::BACKUP_EXPORT_FOLDER);
+        $base = preg_replace('/\.mtre$/i', '', (string)$export['filename']) ?: 'nxtree';
+        $filename = $this->normaliseFilename('Deleted-' . $base . '-' . date('Y-m-d-His', $now) . '.mtre');
+        $path = $this->uniqueFilePath($folder, self::BACKUP_EXPORT_FOLDER, $filename);
+        $file = $folder->newFile(basename($path));
+        $file->putContent((string)$export['contents']);
+
+        return $path;
+    }
+
+    private function softDeleteTree(int $treeId, int $now): void {
         $qb = $this->db->getQueryBuilder();
         $qb->update('nxtree_trees')
-            ->set('library_path', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
-            ->set('library_name', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+            ->set('deleted_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->executeStatement();
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_nodes')
+            ->set('deleted_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    private function purgeOldDeletedTrees(string $userId, int $keepCount): void {
+        $keepCount = max(0, $keepCount);
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id')
+            ->from('nxtree_trees')
+            ->where($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
+            ->andWhere($qb->expr()->neq('title', $qb->createNamedParameter(self::DIRECTORY_TREE_TITLE)))
+            ->andWhere($qb->expr()->isNotNull('deleted_at'))
+            ->orderBy('deleted_at', 'DESC')
+            ->addOrderBy('id', 'DESC')
+            ->executeQuery();
+
+        $index = 0;
+        $purgeIds = [];
+        while (($row = $result->fetch()) !== false) {
+            $index++;
+            if ($index <= $keepCount) {
+                continue;
+            }
+            $purgeIds[] = (int)$row['id'];
+        }
+        $result->closeCursor();
+
+        foreach ($purgeIds as $treeId) {
+            $this->deleteTreeRows($treeId);
+        }
+    }
+
+    private function deleteTreeRows(int $treeId): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete('nxtree_operations')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete('nxtree_nodes')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete('nxtree_trees')
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    private function softDeleteDirectoryFilesForTree(int $directoryTreeId, int $linkedTreeId, int $now): void {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id')
+            ->from('nxtree_nodes')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($directoryTreeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('node_kind', $qb->createNamedParameter(self::NODE_KIND_TREE_FILE)))
+            ->andWhere($qb->expr()->eq('linked_tree_id', $qb->createNamedParameter($linkedTreeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->isNull('deleted_at'))
+            ->executeQuery();
+
+        while (($row = $result->fetch()) !== false) {
+            $this->softDeleteNode((int)$row['id'], $now);
+        }
+        $result->closeCursor();
     }
 
     private function softDeleteNode(int $nodeId, int $now): void {

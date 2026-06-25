@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.28
+
+- Keep `_directory01_` in directory mode after undoing virtual file deletes.
+- Replace the outdated empty-node placeholder text in Markdown preview.
+
 ## 0.9.27
 
 - Keep virtual file delete and undo consistent by clearing and restoring linked tree library metadata.

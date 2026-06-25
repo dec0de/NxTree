@@ -675,9 +675,15 @@ final class TreeService {
             }
             $this->restoreDirectoryMetadataForSnapshot($snapshotNodes, $rootNodeId);
 
+            $isDirectorySnapshot = isset($snapshot['isDirectoryTree']) && ($snapshot['isDirectoryTree'] === true || $snapshot['isDirectoryTree'] === 1 || $snapshot['isDirectoryTree'] === '1');
+            $treeTitle = (string)$tree['title'];
+            $restoredTreeTitle = $isDirectorySnapshot || $treeTitle === self::DIRECTORY_TREE_TITLE
+                ? self::DIRECTORY_TREE_TITLE
+                : (string)($snapshotNodes[$rootNodeId]['title'] ?? 'Untitled tree');
+
             $newRevision = (int)$tree['revision'] + 1;
             $this->updateTreeRevision($treeId, $newRevision, $now);
-            $this->updateTreeTitle($treeId, (string)($snapshotNodes[$rootNodeId]['title'] ?? 'Untitled tree'));
+            $this->updateTreeTitle($treeId, $restoredTreeTitle);
             $this->insertOperation($treeId, $userId, $newRevision, 'undoStructure', [
                 'nodeCount' => count($snapshotNodes),
             ], $now);

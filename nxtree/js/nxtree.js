@@ -619,7 +619,7 @@
             contentEl.value = isTreeFile ? 'Virtual NxTree file. Use Load to open the linked database tree.' : (node.contentMarkdown || '');
             contentEl.hidden = editorMode !== 'edit';
             previewEl.hidden = editorMode === 'edit';
-            const preview = isTreeFile ? `Virtual NxTree file linked to database tree ${node.linkedTreeId}. Use Load to open it.` : (node.contentMarkdown || 'This node is stored in the NxTree database. Editing will use revisioned operations in the next milestone.');
+            const preview = isTreeFile ? `Virtual NxTree file linked to database tree ${node.linkedTreeId}. Use Load to open it.` : (node.contentMarkdown || 'No content yet.');
             previewEl.innerHTML = renderMarkdownPreview(preview);
             updateDirectoryLoadButton();
         }

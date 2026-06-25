@@ -115,6 +115,13 @@
             return currentTree && (currentTree.isDirectoryTree === true || currentTree.isDirectoryTree === 1 || currentTree.isDirectoryTree === '1');
         }
 
+        function updateDirectoryModeUi() {
+            const directoryMode = isDirectoryTreeLoaded();
+            app.classList.toggle('nxtree-directory-mode', directoryMode);
+            fileToggle.classList.toggle('active', directoryMode);
+            fileToggle.setAttribute('aria-pressed', directoryMode ? 'true' : 'false');
+        }
+
         function isDirectoryFileNode(node) {
             return isDirectoryTreeLoaded() && node && node.nodeKind === 'tree_file' && node.linkedTreeId;
         }
@@ -602,6 +609,7 @@
         }
 
         function renderSelectedNode() {
+            updateDirectoryModeUi();
             const node = selectedNode();
             if (!node) {
                 titleEl.value = '';
@@ -1200,7 +1208,7 @@
             return '/NxTree';
         }
 
-        function openTreeLibrary() {
+        function openTreeLibrary(showFileMenu = false) {
             if (currentTree && !isDirectoryTreeLoaded()) {
                 previousTreeId = currentTree.id;
                 updateBackButton();
@@ -1231,7 +1239,7 @@
                     renderTree();
                     setEditorMode('preview');
                     startTreeSync();
-                    fileMenu.hidden = true;
+                    fileMenu.hidden = !showFileMenu;
                     setStatus('Loaded NxTree Library. Select a file and click Load to open it, or select a folder as the Save target.');
                 })
                 .catch(error => setStatus(error.message));
@@ -1451,6 +1459,10 @@
         }
 
         fileToggle.addEventListener('click', () => {
+            if (!isDirectoryTreeLoaded()) {
+                openTreeLibrary(true);
+                return;
+            }
             fileMenu.hidden = !fileMenu.hidden;
         });
         newTreeButton.addEventListener('click', createTree);

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.31
+
+- Make File enter the virtual directory view directly and highlight directory mode with a warm background.
+
 ## 0.9.30
 
 - Repair corrupted `_directory01_` titles so the internal directory tree does not appear as a normal tree.

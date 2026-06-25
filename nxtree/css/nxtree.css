@@ -33,6 +33,22 @@
     background: linear-gradient(180deg, var(--color-background-hover), var(--color-main-background));
 }
 
+#nxtree-app.nxtree-directory-mode .nxtree-sidebar,
+#nxtree-app.nxtree-directory-mode .nxtree-tree {
+    background: linear-gradient(180deg, #fff8d8, #fffdf3);
+}
+
+#nxtree-app.nxtree-directory-mode .nxtree-tree-actions,
+#nxtree-app.nxtree-directory-mode .nxtree-file-actions {
+    background: color-mix(in srgb, #fff2b8 54%, var(--color-main-background));
+}
+
+#nxtree-app.nxtree-directory-mode #nxtree-file-toggle.active {
+    border-color: #d6a800;
+    background: #fff2b8;
+    color: #3b2d00;
+}
+
 .nxtree-divider {
     position: relative;
     z-index: 3;

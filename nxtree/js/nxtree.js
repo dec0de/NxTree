@@ -28,8 +28,6 @@
         const fileToggle = document.getElementById('nxtree-file-toggle');
         const fileMenu = document.getElementById('nxtree-file-menu');
         const newTreeButton = document.getElementById('nxtree-new-tree');
-        const loadTreeButton = document.getElementById('nxtree-load-tree');
-        const backTreeButton = document.getElementById('nxtree-back-tree');
         const saveTreeButton = document.getElementById('nxtree-save-tree');
         const importFilesButton = document.getElementById('nxtree-import-files');
         const exportFilesButton = document.getElementById('nxtree-export-files');
@@ -103,12 +101,6 @@
 
         function setSaveState(message) {
             saveStateEl.textContent = message;
-        }
-
-        function updateBackButton() {
-            const disabled = previousTreeId === null;
-            backTreeButton.disabled = disabled;
-            backTreeButton.hidden = disabled;
         }
 
         function isDirectoryTreeLoaded() {
@@ -1035,7 +1027,6 @@
             }
             directoryTargetFolderId = node.parentId || currentTree.rootNodeId;
             previousTreeId = currentTree.id;
-            updateBackButton();
             selectedTreeId = node.linkedTreeId;
             loadTree(node.linkedTreeId);
         }
@@ -1211,7 +1202,6 @@
         function openTreeLibrary(showFileMenu = false) {
             if (currentTree && !isDirectoryTreeLoaded()) {
                 previousTreeId = currentTree.id;
-                updateBackButton();
             }
             setStatus('Loading NxTree Library...');
             fetch(endpoint('/directory'), {
@@ -1252,7 +1242,6 @@
             }
             const treeId = previousTreeId;
             previousTreeId = null;
-            updateBackButton();
             fileMenu.hidden = true;
             setStatus('Returning to previous tree...');
             loadTree(treeId);
@@ -1459,15 +1448,13 @@
         }
 
         fileToggle.addEventListener('click', () => {
-            if (!isDirectoryTreeLoaded()) {
-                openTreeLibrary(true);
+            if (isDirectoryTreeLoaded()) {
+                returnToPreviousTree();
                 return;
             }
-            fileMenu.hidden = !fileMenu.hidden;
+            openTreeLibrary(true);
         });
         newTreeButton.addEventListener('click', createTree);
-        loadTreeButton.addEventListener('click', openTreeLibrary);
-        backTreeButton.addEventListener('click', returnToPreviousTree);
         saveTreeButton.addEventListener('click', saveTreeToLibrary);
         importFilesButton.addEventListener('click', importTreeFromFiles);
         exportFilesButton.addEventListener('click', exportMtreToFiles);
@@ -1512,7 +1499,6 @@
         makePanelDraggable(searchPanel, searchPanelHeader);
         makePanelDraggable(filesPanel, filesPanelHeader);
         loadTrees();
-        updateBackButton();
         app.dataset.ready = 'true';
     });
 })();

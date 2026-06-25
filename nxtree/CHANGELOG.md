@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.32
+
+- Stop auto-seeding the virtual directory with every database tree.
+- Remove legacy auto-created directory entries and empty folders on library load.
+- Remove visible Folder/File prefixes from directory labels.
+- Make File a true toggle between normal tree editing and the virtual directory view, removing the separate Back and File-menu Load buttons.
+
 ## 0.9.31
 
 - Make File enter the virtual directory view directly and highlight directory mode with a warm background.

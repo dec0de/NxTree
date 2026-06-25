@@ -104,7 +104,7 @@ final class TreeService {
         $directoryTreeId = $this->ensureDirectoryTree($userId);
         $this->repairDirectoryTreeTitle($directoryTreeId);
         $this->removeDirectorySelfLinks($directoryTreeId);
-        $this->seedDirectoryTree($userId, $directoryTreeId);
+        $this->removeLegacyDirectoryEntries($directoryTreeId);
 
         return $this->loadedTree($userId, $directoryTreeId);
     }
@@ -1336,6 +1336,57 @@ final class TreeService {
             $this->softDeleteNode((int)$row['id'], $now);
         }
         $result->closeCursor();
+    }
+
+    private function removeLegacyDirectoryEntries(int $directoryTreeId): void {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id', 'linked_tree_id')
+            ->from('nxtree_nodes')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($directoryTreeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('node_kind', $qb->createNamedParameter(self::NODE_KIND_TREE_FILE)))
+            ->andWhere($qb->expr()->isNull('deleted_at'))
+            ->executeQuery();
+
+        $now = time();
+        while (($row = $result->fetch()) !== false) {
+            if ($row['linked_tree_id'] === null) {
+                $this->softDeleteNode((int)$row['id'], $now);
+                continue;
+            }
+            $linkedTree = $this->treeRow((int)$row['linked_tree_id']);
+            if ($linkedTree === null || ($linkedTree['library_path'] === null && $linkedTree['library_name'] === null)) {
+                $this->softDeleteNode((int)$row['id'], $now);
+            }
+        }
+        $result->closeCursor();
+        $this->removeEmptyDirectoryFolders($directoryTreeId, $now);
+    }
+
+    private function removeEmptyDirectoryFolders(int $directoryTreeId, int $now): void {
+        $tree = $this->treeRow($directoryTreeId);
+        if ($tree === null || $tree['root_node_id'] === null) {
+            return;
+        }
+
+        do {
+            $removed = false;
+            $qb = $this->db->getQueryBuilder();
+            $result = $qb->select('id')
+                ->from('nxtree_nodes')
+                ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($directoryTreeId, IQueryBuilder::PARAM_INT)))
+                ->andWhere($qb->expr()->eq('node_kind', $qb->createNamedParameter(self::NODE_KIND_FOLDER)))
+                ->andWhere($qb->expr()->neq('id', $qb->createNamedParameter((int)$tree['root_node_id'], IQueryBuilder::PARAM_INT)))
+                ->andWhere($qb->expr()->isNull('deleted_at'))
+                ->executeQuery();
+
+            while (($row = $result->fetch()) !== false) {
+                if (count($this->childRows($directoryTreeId, (int)$row['id'])) === 0) {
+                    $this->softDeleteNode((int)$row['id'], $now);
+                    $removed = true;
+                }
+            }
+            $result->closeCursor();
+        } while ($removed);
     }
 
     private function seedDirectoryTree(string $userId, int $directoryTreeId): void {

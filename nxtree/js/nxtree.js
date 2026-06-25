@@ -613,12 +613,12 @@
             }
             const isTreeFile = isDirectoryFileNode(node);
             titleEl.disabled = false;
-            contentEl.disabled = isTreeFile;
+            contentEl.disabled = false;
             titleEl.value = isTreeFile ? directoryFileName(node) : (node.title || '');
-            contentEl.value = isTreeFile ? 'Virtual NxTree file. Use Load to open the linked database tree.' : (node.contentMarkdown || '');
+            contentEl.value = node.contentMarkdown || '';
             contentEl.hidden = editorMode !== 'edit';
             previewEl.hidden = editorMode === 'edit';
-            const preview = isTreeFile ? `Virtual NxTree file linked to database tree ${node.linkedTreeId}. Use Load to open it.` : (node.contentMarkdown || 'No content yet.');
+            const preview = node.contentMarkdown || (isTreeFile ? 'No summary yet. Use Load to open the linked database tree.' : 'No content yet.');
             previewEl.innerHTML = renderMarkdownPreview(preview);
             updateDirectoryLoadButton();
         }
@@ -671,10 +671,6 @@
             if (!node) {
                 return;
             }
-            if (isDirectoryFileNode(node)) {
-                node.contentMarkdown = '';
-                return;
-            }
             renderTree();
             if (editorMode === 'preview') {
                 previewEl.innerHTML = renderMarkdownPreview(node.contentMarkdown || '');
@@ -697,9 +693,6 @@
             const node = updateSelectedNodeFromEditor();
             if (!node) {
                 return;
-            }
-            if (isDirectoryFileNode(node)) {
-                node.contentMarkdown = '';
             }
             const body = new URLSearchParams();
             body.set('title', node.title || 'Untitled node');

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.43
+
+- Allow virtual files in File view to store editable Markdown summaries.
+
 ## 0.9.42
 
 - Remove the manual Save button from the File menu; File view now manages virtual file entries automatically.

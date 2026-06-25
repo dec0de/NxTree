@@ -450,7 +450,6 @@ final class TreeService {
                 if ($this->isReservedLibraryName($title)) {
                     throw new InvalidArgumentException('"_directory01_" is reserved for the NxTree Library');
                 }
-                $contentMarkdown = '';
             }
             $this->updateNodeRow($nodeId, $title, $contentMarkdown, (int)$node['version'] + 1, $now);
             if ((string)($node['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_TREE_FILE && isset($node['linked_tree_id']) && $node['linked_tree_id'] !== null) {
@@ -1674,7 +1673,6 @@ final class TreeService {
         $qb = $this->db->getQueryBuilder();
         $qb->update('nxtree_nodes')
             ->set('title', $qb->createNamedParameter($title))
-            ->set('content_markdown', $qb->createNamedParameter(''))
             ->set('node_kind', $qb->createNamedParameter(self::NODE_KIND_TREE_FILE))
             ->set('linked_tree_id', $qb->createNamedParameter($linkedTreeId, IQueryBuilder::PARAM_INT))
             ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))

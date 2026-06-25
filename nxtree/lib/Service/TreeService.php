@@ -42,6 +42,10 @@ final class TreeService {
 
         $trees = [];
         while (($row = $result->fetch()) !== false) {
+            if ($this->isDirectoryTreeRow($row)) {
+                $this->repairDirectoryTreeTitle((int)$row['id']);
+                continue;
+            }
             $trees[] = $this->formatTree($row);
         }
         $result->closeCursor();
@@ -98,6 +102,8 @@ final class TreeService {
      */
     public function directoryTree(string $userId): array {
         $directoryTreeId = $this->ensureDirectoryTree($userId);
+        $this->repairDirectoryTreeTitle($directoryTreeId);
+        $this->removeDirectorySelfLinks($directoryTreeId);
         $this->seedDirectoryTree($userId, $directoryTreeId);
 
         return $this->loadedTree($userId, $directoryTreeId);
@@ -1270,7 +1276,66 @@ final class TreeService {
         $row = $result->fetch();
         $result->closeCursor();
 
+        if ($row !== false) {
+            return $row;
+        }
+
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('t.id', 't.root_node_id')
+            ->from('nxtree_trees', 't')
+            ->innerJoin('t', 'nxtree_nodes', 'n', $qb->expr()->eq('t.root_node_id', 'n.id'))
+            ->where($qb->expr()->eq('t.owner_user_id', $qb->createNamedParameter($userId)))
+            ->andWhere($qb->expr()->eq('n.title', $qb->createNamedParameter(self::DIRECTORY_ROOT_TITLE)))
+            ->andWhere($qb->expr()->eq('n.node_kind', $qb->createNamedParameter(self::NODE_KIND_FOLDER)))
+            ->andWhere($qb->expr()->isNull('t.deleted_at'))
+            ->andWhere($qb->expr()->isNull('n.deleted_at'))
+            ->orderBy('t.created_at', 'ASC')
+            ->setMaxResults(1)
+            ->executeQuery();
+        $row = $result->fetch();
+        $result->closeCursor();
+
         return $row === false ? null : $row;
+    }
+
+    /**
+     * @param array<string, mixed> $tree
+     */
+    private function isDirectoryTreeRow(array $tree): bool {
+        if ((string)($tree['title'] ?? '') === self::DIRECTORY_TREE_TITLE) {
+            return true;
+        }
+        if (!isset($tree['root_node_id']) || $tree['root_node_id'] === null) {
+            return false;
+        }
+
+        $root = $this->nodeRow((int)$tree['root_node_id']);
+        return $root !== null
+            && (string)($root['title'] ?? '') === self::DIRECTORY_ROOT_TITLE
+            && (string)($root['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_FOLDER;
+    }
+
+    private function repairDirectoryTreeTitle(int $directoryTreeId): void {
+        if ($this->treeTitle($directoryTreeId) !== self::DIRECTORY_TREE_TITLE) {
+            $this->updateTreeTitle($directoryTreeId, self::DIRECTORY_TREE_TITLE);
+        }
+    }
+
+    private function removeDirectorySelfLinks(int $directoryTreeId): void {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id')
+            ->from('nxtree_nodes')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($directoryTreeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('node_kind', $qb->createNamedParameter(self::NODE_KIND_TREE_FILE)))
+            ->andWhere($qb->expr()->eq('linked_tree_id', $qb->createNamedParameter($directoryTreeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->isNull('deleted_at'))
+            ->executeQuery();
+
+        $now = time();
+        while (($row = $result->fetch()) !== false) {
+            $this->softDeleteNode((int)$row['id'], $now);
+        }
+        $result->closeCursor();
     }
 
     private function seedDirectoryTree(string $userId, int $directoryTreeId): void {

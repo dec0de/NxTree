@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.30
+
+- Repair corrupted `_directory01_` titles so the internal directory tree does not appear as a normal tree.
+- Remove virtual self-links to the internal directory tree when loading the library.
+
 ## 0.9.29
 
 - Preserve virtual file labels from their directory node titles instead of falling back to linked tree titles.

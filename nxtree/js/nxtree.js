@@ -807,6 +807,9 @@
             })).then(data => {
                 undoStack.pop();
                 applyTreeResult(data, previous.selectedNodeId);
+                if (isDirectoryTreeLoaded()) {
+                    loadTrees();
+                }
                 setStatus('Undid last tree change');
             }).catch(error => setStatus(error.message));
         }

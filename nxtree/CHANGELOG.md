@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.40
+
+- Restore linked database trees when undoing a deleted directory branch with virtual files.
+- Keep deleted-tree retention by delete batch so folder deletes with multiple files remain restorable.
+
 ## 0.9.39
 
 - Back up virtual files to `/NxTree/Backups` before deleting their linked database tree.

@@ -16,7 +16,7 @@ use UnexpectedValueException;
 final class TreeService {
     private const DEFAULT_EXPORT_FOLDER = '/NxTree';
     private const BACKUP_EXPORT_FOLDER = '/NxTree/Backups';
-    private const DELETED_TREE_RETENTION_COUNT = 5;
+    private const DELETED_TREE_RETENTION_BATCHES = 5;
     private const DIRECTORY_TREE_TITLE = '_directory01_';
     private const DIRECTORY_ROOT_TITLE = 'NxTree Library';
     private const NODE_KIND_NOTE = 'note';
@@ -135,8 +135,8 @@ final class TreeService {
         $this->repairDirectoryTreeTitle($directoryTreeId);
         $this->removeDirectorySelfLinks($directoryTreeId);
         $this->restoreDirectoryFoldersDeletedByCleanup($directoryTreeId);
-        $this->removeLegacyDirectoryEntries($directoryTreeId);
-        $this->purgeOldDeletedTrees($userId, self::DELETED_TREE_RETENTION_COUNT);
+        $this->removeLegacyDirectoryEntries($userId, $directoryTreeId);
+        $this->purgeOldDeletedTrees($userId, self::DELETED_TREE_RETENTION_BATCHES);
 
         return $this->loadedTree($userId, $directoryTreeId);
     }
@@ -555,9 +555,9 @@ final class TreeService {
                     $this->backupTreeToFiles($userId, $linkedTreeId, $now);
                     $this->softDeleteDirectoryFilesForTree($treeId, $linkedTreeId, $now);
                     $this->softDeleteTree($linkedTreeId, $now);
-                    $this->purgeOldDeletedTrees($userId, self::DELETED_TREE_RETENTION_COUNT);
                 }
             }
+            $this->purgeOldDeletedTrees($userId, self::DELETED_TREE_RETENTION_BATCHES);
             foreach ($deletedIds as $id) {
                 $this->softDeleteNode($id, $now);
             }
@@ -725,6 +725,7 @@ final class TreeService {
             foreach ($snapshotNodes as $nodeId => $node) {
                 $this->restoreSnapshotNode($treeId, $nodeId, $node, $now);
             }
+            $this->restoreLinkedTreesForDirectorySnapshot($userId, $snapshotNodes, $now);
             $this->restoreDirectoryMetadataForSnapshot($snapshotNodes, $rootNodeId);
 
             $isDirectorySnapshot = isset($snapshot['isDirectoryTree']) && ($snapshot['isDirectoryTree'] === true || $snapshot['isDirectoryTree'] === 1 || $snapshot['isDirectoryTree'] === '1');
@@ -932,10 +933,10 @@ final class TreeService {
             ->executeStatement();
     }
 
-    private function purgeOldDeletedTrees(string $userId, int $keepCount): void {
-        $keepCount = max(0, $keepCount);
+    private function purgeOldDeletedTrees(string $userId, int $keepBatches): void {
+        $keepBatches = max(0, $keepBatches);
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id')
+        $result = $qb->select('id', 'deleted_at')
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('owner_user_id', $qb->createNamedParameter($userId)))
             ->andWhere($qb->expr()->neq('title', $qb->createNamedParameter(self::DIRECTORY_TREE_TITLE)))
@@ -944,11 +945,16 @@ final class TreeService {
             ->addOrderBy('id', 'DESC')
             ->executeQuery();
 
-        $index = 0;
+        $batchCount = 0;
+        $lastDeletedAt = null;
         $purgeIds = [];
         while (($row = $result->fetch()) !== false) {
-            $index++;
-            if ($index <= $keepCount) {
+            $deletedAt = (int)$row['deleted_at'];
+            if ($lastDeletedAt === null || $deletedAt !== $lastDeletedAt) {
+                $batchCount++;
+                $lastDeletedAt = $deletedAt;
+            }
+            if ($batchCount <= $keepBatches) {
                 continue;
             }
             $purgeIds[] = (int)$row['id'];
@@ -991,6 +997,42 @@ final class TreeService {
             $this->softDeleteNode((int)$row['id'], $now);
         }
         $result->closeCursor();
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $snapshotNodes
+     */
+    private function restoreLinkedTreesForDirectorySnapshot(string $userId, array $snapshotNodes, int $now): void {
+        foreach ($snapshotNodes as $node) {
+            if ((string)($node['nodeKind'] ?? self::NODE_KIND_NOTE) !== self::NODE_KIND_TREE_FILE || !isset($node['linkedTreeId']) || $node['linkedTreeId'] === null) {
+                continue;
+            }
+
+            $linkedTree = $this->treeRowIncludingDeleted((int)$node['linkedTreeId']);
+            if ($linkedTree === null || (string)$linkedTree['owner_user_id'] !== $userId) {
+                continue;
+            }
+            if ((string)$linkedTree['title'] === self::DIRECTORY_TREE_TITLE) {
+                continue;
+            }
+            $this->restoreDeletedTree((int)$linkedTree['id'], $now);
+        }
+    }
+
+    private function restoreDeletedTree(int $treeId, int $now): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_trees')
+            ->set('deleted_at', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+            ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_nodes')
+            ->set('deleted_at', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+            ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
     }
 
     private function softDeleteNode(int $nodeId, int $now): void {
@@ -1468,7 +1510,7 @@ final class TreeService {
         $result->closeCursor();
     }
 
-    private function removeLegacyDirectoryEntries(int $directoryTreeId): void {
+    private function removeLegacyDirectoryEntries(string $userId, int $directoryTreeId): void {
         $qb = $this->db->getQueryBuilder();
         $result = $qb->select('id', 'title', 'linked_tree_id')
             ->from('nxtree_nodes')
@@ -1483,8 +1525,14 @@ final class TreeService {
                 $this->softDeleteNode((int)$row['id'], $now);
                 continue;
             }
-            $linkedTree = $this->treeRow((int)$row['linked_tree_id']);
-            if ($linkedTree === null || ($linkedTree['library_path'] === null && $linkedTree['library_name'] === null)) {
+            $linkedTree = $this->treeRowIncludingDeleted((int)$row['linked_tree_id']);
+            if ($linkedTree === null || (string)$linkedTree['owner_user_id'] !== $userId) {
+                $this->softDeleteNode((int)$row['id'], $now);
+                continue;
+            }
+            if ($linkedTree['deleted_at'] !== null) {
+                $this->restoreDeletedTree((int)$linkedTree['id'], $now);
+            } elseif ($linkedTree['library_path'] === null && $linkedTree['library_name'] === null) {
                 $this->softDeleteNode((int)$row['id'], $now);
                 continue;
             }
@@ -1782,6 +1830,22 @@ final class TreeService {
             ->from('nxtree_trees')
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->isNull('deleted_at'))
+            ->executeQuery();
+
+        $row = $result->fetch();
+        $result->closeCursor();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function treeRowIncludingDeleted(int $treeId): ?array {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id', 'owner_user_id', 'title', 'root_node_id', 'revision', 'source_file_path', 'last_export_folder_path', 'library_path', 'library_name', 'deleted_at')
+            ->from('nxtree_trees')
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->executeQuery();
 
         $row = $result->fetch();

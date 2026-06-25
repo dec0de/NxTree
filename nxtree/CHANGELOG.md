@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.41
+
+- Prevent File-toggle library sync from moving restored virtual files out of their directory folder.
+- Retry File view entry at the library root if a stale folder target blocks saving the current tree.
+
 ## 0.9.40
 
 - Restore linked database trees when undoing a deleted directory branch with virtual files.

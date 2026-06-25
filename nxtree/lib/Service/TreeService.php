@@ -296,13 +296,14 @@ final class TreeService {
             if ($directory === null) {
                 throw new InvalidArgumentException('Directory tree could not be loaded');
             }
-            $targetFolderId = $folderNodeId ?? (int)$directory['root_node_id'];
+            $existingFileId = $this->directoryFileNodeId($directoryTreeId, $treeId);
+            $existingFile = $existingFileId === null ? null : $this->nodeRow($existingFileId);
+            $targetFolderId = $folderNodeId ?? ($existingFile !== null && $existingFile['parent_id'] !== null ? (int)$existingFile['parent_id'] : (int)$directory['root_node_id']);
             $folder = $this->nodeRow($targetFolderId);
             if ($folder === null || (int)$folder['tree_id'] !== $directoryTreeId || (string)($folder['node_kind'] ?? self::NODE_KIND_NOTE) !== self::NODE_KIND_FOLDER) {
                 throw new InvalidArgumentException('Choose a directory folder before saving');
             }
 
-            $existingFileId = $this->directoryFileNodeId($directoryTreeId, $treeId);
             if ($existingFileId === null) {
                 $this->insertChildNode($directoryTreeId, $targetFolderId, count($this->childRows($directoryTreeId, $targetFolderId)), $libraryName, $now, self::NODE_KIND_TREE_FILE, $treeId);
             } else {

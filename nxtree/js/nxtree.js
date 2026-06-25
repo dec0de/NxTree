@@ -1222,20 +1222,29 @@
 
             const body = new URLSearchParams();
             body.set('libraryName', treeLibraryName(currentTree));
-            if (directoryTargetFolderId !== null) {
+            if (!currentTree.libraryPath && directoryTargetFolderId !== null) {
                 body.set('folderNodeId', String(directoryTargetFolderId));
             }
 
-            return fetch(endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/directory'), {
+            const saveCurrentTree = params => fetch(endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/directory'), {
                 method: 'POST',
                 headers: requestHeaders(),
-                body,
+                body: params,
             }).then(response => response.json().then(data => {
                 if (!response.ok) {
                     throw new Error(data.error || 'Could not add current tree to the directory');
                 }
                 return data;
             }));
+
+            return saveCurrentTree(body).catch(error => {
+                if (body.has('folderNodeId') && /Choose a directory folder/.test(error.message)) {
+                    body.delete('folderNodeId');
+                    directoryTargetFolderId = null;
+                    return saveCurrentTree(body);
+                }
+                throw error;
+            });
         }
 
         function openTreeLibrary(showFileMenu = false) {

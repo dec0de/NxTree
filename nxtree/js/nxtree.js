@@ -96,6 +96,7 @@
         let directoryTreeId = null;
         let directoryTargetFolderId = null;
         let previousTreeId = null;
+        let directoryPreviewRequestId = 0;
         const undoStack = [];
         const collapsedIds = new Set();
 
@@ -612,6 +613,7 @@
             updateDirectoryModeUi();
             const node = selectedNode();
             if (!node) {
+                directoryPreviewRequestId++;
                 titleEl.value = '';
                 contentEl.value = '';
                 previewEl.innerHTML = '';
@@ -622,14 +624,48 @@
             }
             const isTreeFile = isDirectoryFileNode(node);
             titleEl.disabled = false;
-            contentEl.disabled = false;
+            contentEl.disabled = isTreeFile;
             titleEl.value = isTreeFile ? directoryFileName(node) : (node.title || '');
-            contentEl.value = node.contentMarkdown || '';
             contentEl.hidden = editorMode !== 'edit';
             previewEl.hidden = editorMode === 'edit';
-            const preview = node.contentMarkdown || (isTreeFile ? 'No summary yet. Use Load to open the linked database tree.' : 'No content yet.');
-            previewEl.innerHTML = renderMarkdownPreview(preview);
+            if (isTreeFile) {
+                directoryPreviewRequestId++;
+                contentEl.value = 'Loading linked tree root...';
+                previewEl.innerHTML = renderMarkdownPreview('Loading linked tree root...');
+                loadDirectoryFilePreview(node, directoryPreviewRequestId);
+            } else {
+                directoryPreviewRequestId++;
+                contentEl.value = node.contentMarkdown || '';
+                previewEl.innerHTML = renderMarkdownPreview(node.contentMarkdown || 'No content yet.');
+            }
             updateDirectoryLoadButton();
+        }
+
+        function loadDirectoryFilePreview(node, requestId) {
+            fetch(endpoint('/trees/' + encodeURIComponent(node.linkedTreeId)), { headers: requestHeaders() })
+                .then(response => response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Could not load linked tree preview');
+                    }
+                    return data;
+                }))
+                .then(data => {
+                    if (requestId !== directoryPreviewRequestId || !isDirectoryTreeLoaded() || String(selectedNodeId) !== String(node.id)) {
+                        return;
+                    }
+                    const linkedTree = data.tree;
+                    const root = Array.isArray(linkedTree.nodes) ? linkedTree.nodes.find(item => String(item.id) === String(linkedTree.rootNodeId)) : null;
+                    const preview = root && root.contentMarkdown ? root.contentMarkdown : 'No content yet. Use Load to open the linked database tree.';
+                    contentEl.value = preview;
+                    previewEl.innerHTML = renderMarkdownPreview(preview);
+                })
+                .catch(error => {
+                    if (requestId !== directoryPreviewRequestId || !isDirectoryTreeLoaded() || String(selectedNodeId) !== String(node.id)) {
+                        return;
+                    }
+                    contentEl.value = error.message;
+                    previewEl.innerHTML = renderMarkdownPreview(error.message);
+                });
         }
 
         function selectNode(id) {
@@ -671,7 +707,9 @@
                 return null;
             }
             node.title = titleEl.value;
-            node.contentMarkdown = contentEl.value;
+            if (!isDirectoryFileNode(node)) {
+                node.contentMarkdown = contentEl.value;
+            }
             return node;
         }
 
@@ -681,7 +719,7 @@
                 return;
             }
             renderTree();
-            if (editorMode === 'preview') {
+            if (editorMode === 'preview' && !isDirectoryFileNode(node)) {
                 previewEl.innerHTML = renderMarkdownPreview(node.contentMarkdown || '');
             }
             markDirty();

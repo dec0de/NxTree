@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.45
+
+- Show the linked tree root-node Markdown when selecting a virtual file in File view.
+
 ## 0.9.44
 
 - Add scoped search and replace for the selected node and its children, with undo support.

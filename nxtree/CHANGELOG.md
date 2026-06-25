@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.42
+
+- Remove the manual Save button from the File menu; File view now manages virtual file entries automatically.
+- Keep File view backgrounds normal while coloring directory folders green and files blue.
+
 ## 0.9.41
 
 - Prevent File-toggle library sync from moving restored virtual files out of their directory folder.

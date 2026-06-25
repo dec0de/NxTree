@@ -33,20 +33,10 @@
     background: linear-gradient(180deg, var(--color-background-hover), var(--color-main-background));
 }
 
-#nxtree-app.nxtree-directory-mode .nxtree-sidebar,
-#nxtree-app.nxtree-directory-mode .nxtree-tree {
-    background: linear-gradient(180deg, #fff8d8, #fffdf3);
-}
-
-#nxtree-app.nxtree-directory-mode .nxtree-tree-actions,
-#nxtree-app.nxtree-directory-mode .nxtree-file-actions {
-    background: color-mix(in srgb, #fff2b8 54%, var(--color-main-background));
-}
-
 #nxtree-app.nxtree-directory-mode #nxtree-file-toggle.active {
-    border-color: #d6a800;
-    background: #fff2b8;
-    color: #3b2d00;
+    border-color: var(--color-primary-element, var(--color-border));
+    background: var(--color-primary-light);
+    color: var(--color-main-text, var(--color-text-maxcontrast));
 }
 
 .nxtree-divider {
@@ -335,6 +325,15 @@
 .nxtree-search-result:hover,
 .nxtree-tree button:hover {
     background: var(--color-primary-light);
+}
+
+#nxtree-app.nxtree-directory-mode .nxtree-directory-folder-row .nxtree-tree-label {
+    color: #1f7a3f;
+    font-weight: 600;
+}
+
+#nxtree-app.nxtree-directory-mode .nxtree-directory-file-row .nxtree-tree-label {
+    color: #0969da;
 }
 
 .nxtree-editor {

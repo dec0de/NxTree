@@ -9,10 +9,9 @@
         </header>
         <div id="nxtree-file-menu" class="nxtree-file-actions" hidden>
             <button type="button" id="nxtree-new-tree">Create New Tree</button>
-            <button type="button" id="nxtree-save-tree" title="Save this database tree into the current virtual folder">Save</button>
             <button type="button" id="nxtree-import-files">Import from Files</button>
             <button type="button" id="nxtree-export-files" title="Save the selected branch to Nextcloud Files">Export to Files</button>
-            <small>File toggles the virtual directory view. Save creates or updates a virtual file in the selected directory folder.</small>
+            <small>File toggles the virtual directory view. Create New Tree creates a file in the selected folder.</small>
         </div>
         <div class="nxtree-tree-actions" aria-label="Tree actions">
             <button type="button" id="nxtree-add-node" title="New child node">+ Node</button>

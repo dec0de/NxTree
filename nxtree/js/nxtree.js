@@ -28,7 +28,6 @@
         const fileToggle = document.getElementById('nxtree-file-toggle');
         const fileMenu = document.getElementById('nxtree-file-menu');
         const newTreeButton = document.getElementById('nxtree-new-tree');
-        const saveTreeButton = document.getElementById('nxtree-save-tree');
         const importFilesButton = document.getElementById('nxtree-import-files');
         const exportFilesButton = document.getElementById('nxtree-export-files');
         const treeList = document.getElementById('nxtree-tree-list');
@@ -1278,7 +1277,7 @@
                     setEditorMode('preview');
                     startTreeSync();
                     fileMenu.hidden = !showFileMenu;
-                    setStatus('Loaded NxTree Library. Select a file and click Load to open it, or select a folder as the Save target.');
+                    setStatus('Loaded NxTree Library. Select a file and click Load to open it, or select a folder for new trees.');
                 })
                 .catch(error => setStatus(error.message));
         }
@@ -1293,44 +1292,6 @@
             fileMenu.hidden = true;
             setStatus('Returning to previous tree...');
             loadTree(treeId);
-        }
-
-        function saveTreeToLibrary() {
-            if (!currentTree) {
-                setStatus('Open a tree before saving');
-                return;
-            }
-            if (isDirectoryTreeLoaded()) {
-                setStatus('The NxTree Library saves itself automatically');
-                return;
-            }
-            const body = new URLSearchParams();
-            body.set('libraryName', treeLibraryName(currentTree));
-            if (directoryTargetFolderId !== null) {
-                body.set('folderNodeId', String(directoryTargetFolderId));
-            }
-            saveTreeButton.disabled = true;
-            setStatus(`Saving ${treeLibraryName(currentTree)} to NxTree Library...`);
-            fetch(endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/directory'), {
-                method: 'POST',
-                headers: requestHeaders(),
-                body,
-            })
-                .then(response => response.json().then(data => {
-                    if (!response.ok) {
-                        throw new Error(data.error || 'Could not save tree');
-                    }
-                    return data;
-                }))
-                .then(data => {
-                    directoryTreeId = data.tree.id;
-                    renderTreeList();
-                    setStatus(`Saved ${treeLibraryName(currentTree)} to NxTree Library.`);
-                })
-                .catch(error => setStatus(error.message))
-                .finally(() => {
-                    saveTreeButton.disabled = false;
-                });
         }
 
         function exportMtreToFiles() {
@@ -1506,7 +1467,6 @@
                 .catch(error => setStatus(error.message));
         });
         newTreeButton.addEventListener('click', createTree);
-        saveTreeButton.addEventListener('click', saveTreeToLibrary);
         importFilesButton.addEventListener('click', importTreeFromFiles);
         exportFilesButton.addEventListener('click', exportMtreToFiles);
         editModeButton.addEventListener('click', () => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit'));

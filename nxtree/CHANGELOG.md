@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.35
+
+- Restore virtual directory folders that were accidentally soft-deleted by the legacy cleanup repair.
+
 ## 0.9.34
 
 - Preserve user-created empty folders and folder branches in the virtual directory.

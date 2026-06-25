@@ -104,6 +104,7 @@ final class TreeService {
         $directoryTreeId = $this->ensureDirectoryTree($userId);
         $this->repairDirectoryTreeTitle($directoryTreeId);
         $this->removeDirectorySelfLinks($directoryTreeId);
+        $this->restoreDirectoryFoldersDeletedByCleanup($directoryTreeId);
         $this->removeLegacyDirectoryEntries($directoryTreeId);
 
         return $this->loadedTree($userId, $directoryTreeId);
@@ -1364,6 +1365,57 @@ final class TreeService {
             }
         }
         $result->closeCursor();
+    }
+
+    private function restoreDirectoryFoldersDeletedByCleanup(int $directoryTreeId): void {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('id')
+            ->from('nxtree_nodes')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($directoryTreeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('node_kind', $qb->createNamedParameter(self::NODE_KIND_FOLDER)))
+            ->andWhere($qb->expr()->isNotNull('deleted_at'))
+            ->executeQuery();
+
+        $now = time();
+        while (($row = $result->fetch()) !== false) {
+            $nodeId = (int)$row['id'];
+            if (!$this->wasNodeExplicitlyDeleted($directoryTreeId, $nodeId)) {
+                $this->restoreDeletedNode($nodeId, $now);
+            }
+        }
+        $result->closeCursor();
+    }
+
+    private function restoreDeletedNode(int $nodeId, int $now): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_nodes')
+            ->set('deleted_at', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+            ->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
+    private function wasNodeExplicitlyDeleted(int $treeId, int $nodeId): bool {
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('payload_json')
+            ->from('nxtree_operations')
+            ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('type', $qb->createNamedParameter('deleteNode')))
+            ->executeQuery();
+
+        while (($row = $result->fetch()) !== false) {
+            $payload = json_decode((string)($row['payload_json'] ?? ''), true);
+            $deletedIds = is_array($payload) && isset($payload['deletedIds']) && is_array($payload['deletedIds']) ? $payload['deletedIds'] : [];
+            foreach ($deletedIds as $deletedId) {
+                if ((int)$deletedId === $nodeId) {
+                    $result->closeCursor();
+                    return true;
+                }
+            }
+        }
+        $result->closeCursor();
+
+        return false;
     }
 
     private function seedDirectoryTree(string $userId, int $directoryTreeId): void {

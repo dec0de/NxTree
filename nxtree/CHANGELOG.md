@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.29
+
+- Preserve virtual file labels from their directory node titles instead of falling back to linked tree titles.
+
 ## 0.9.28
 
 - Keep `_directory01_` in directory mode after undoing virtual file deletes.

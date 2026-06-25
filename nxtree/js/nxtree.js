@@ -410,7 +410,7 @@
 
         function directoryFileName(node) {
             const title = String(node.title || '').replace(/\.(nxtree|mtre)$/i, '').trim();
-            if (title !== '' && title !== 'Untitled tree') {
+            if (title !== '') {
                 return title;
             }
 

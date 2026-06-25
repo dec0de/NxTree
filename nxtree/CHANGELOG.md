@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.38
+
+- Open newly created trees immediately after creating them from File view.
+
 ## 0.9.37
 
 - Ensure the current database tree has a virtual file entry before entering File view.

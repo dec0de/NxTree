@@ -1086,15 +1086,15 @@
                     selectedTreeId = data.tree.id;
                     renderTreeList();
                     if (createInDirectory) {
-                        setStatus(`Created ${treeLibraryName(data.tree)} in the selected directory folder.`);
-                        return openTreeLibrary(true);
+                        setStatus(`Created ${treeLibraryName(data.tree)} in the selected directory folder. Opening it...`);
+                        return loadTree(data.tree.id);
                     }
                     return loadTree(data.tree.id);
                 })
                 .catch(error => setStatus(error.message))
                 .finally(() => {
                     newTreeButton.disabled = false;
-                    fileMenu.hidden = createInDirectory ? false : true;
+                    fileMenu.hidden = true;
                 });
         }
 

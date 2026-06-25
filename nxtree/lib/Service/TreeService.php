@@ -1364,34 +1364,6 @@ final class TreeService {
             }
         }
         $result->closeCursor();
-        $this->removeEmptyDirectoryFolders($directoryTreeId, $now);
-    }
-
-    private function removeEmptyDirectoryFolders(int $directoryTreeId, int $now): void {
-        $tree = $this->treeRow($directoryTreeId);
-        if ($tree === null || $tree['root_node_id'] === null) {
-            return;
-        }
-
-        do {
-            $removed = false;
-            $qb = $this->db->getQueryBuilder();
-            $result = $qb->select('id')
-                ->from('nxtree_nodes')
-                ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($directoryTreeId, IQueryBuilder::PARAM_INT)))
-                ->andWhere($qb->expr()->eq('node_kind', $qb->createNamedParameter(self::NODE_KIND_FOLDER)))
-                ->andWhere($qb->expr()->neq('id', $qb->createNamedParameter((int)$tree['root_node_id'], IQueryBuilder::PARAM_INT)))
-                ->andWhere($qb->expr()->isNull('deleted_at'))
-                ->executeQuery();
-
-            while (($row = $result->fetch()) !== false) {
-                if (count($this->childRows($directoryTreeId, (int)$row['id'])) === 0) {
-                    $this->softDeleteNode((int)$row['id'], $now);
-                    $removed = true;
-                }
-            }
-            $result->closeCursor();
-        } while ($removed);
     }
 
     private function seedDirectoryTree(string $userId, int $directoryTreeId): void {

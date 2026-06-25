@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.34
+
+- Preserve user-created empty folders and folder branches in the virtual directory.
+
 ## 0.9.33
 
 - Repair generic `Untitled node` virtual file labels from their linked tree library names.

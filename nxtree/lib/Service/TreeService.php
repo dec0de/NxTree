@@ -1340,7 +1340,7 @@ final class TreeService {
 
     private function removeLegacyDirectoryEntries(int $directoryTreeId): void {
         $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('id', 'linked_tree_id')
+        $result = $qb->select('id', 'title', 'linked_tree_id')
             ->from('nxtree_nodes')
             ->where($qb->expr()->eq('tree_id', $qb->createNamedParameter($directoryTreeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->eq('node_kind', $qb->createNamedParameter(self::NODE_KIND_TREE_FILE)))
@@ -1356,6 +1356,11 @@ final class TreeService {
             $linkedTree = $this->treeRow((int)$row['linked_tree_id']);
             if ($linkedTree === null || ($linkedTree['library_path'] === null && $linkedTree['library_name'] === null)) {
                 $this->softDeleteNode((int)$row['id'], $now);
+                continue;
+            }
+            $title = $this->normaliseLibraryName((string)($row['title'] ?? ''));
+            if (($title === '' || $title === 'Untitled node' || $title === 'Untitled tree') && $linkedTree['library_name'] !== null) {
+                $this->updateDirectoryFileNode((int)$row['id'], (string)$linkedTree['library_name'], (int)$row['linked_tree_id'], $now);
             }
         }
         $result->closeCursor();

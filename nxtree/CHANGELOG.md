@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.33
+
+- Repair generic `Untitled node` virtual file labels from their linked tree library names.
+
 ## 0.9.32
 
 - Stop auto-seeding the virtual directory with every database tree.

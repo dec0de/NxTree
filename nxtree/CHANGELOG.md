@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.44
+
+- Add scoped search and replace for the selected node and its children, with undo support.
+
 ## 0.9.43
 
 - Allow virtual files in File view to store editable Markdown summaries.

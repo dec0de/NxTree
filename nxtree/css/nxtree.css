@@ -649,6 +649,24 @@
     white-space: nowrap;
 }
 
+.nxtree-search-replace {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+#nxtree-replace-input {
+    flex: 1;
+    min-width: 180px;
+}
+
+.nxtree-search-status {
+    min-height: 20px;
+    margin: 0;
+    color: var(--color-text-maxcontrast);
+}
+
 .nxtree-search-results {
     flex: 1;
     min-height: 120px;

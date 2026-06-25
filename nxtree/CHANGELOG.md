@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.24
+
+- Hide the `.nxtree` extension from virtual file labels in the directory tree.
+
 ## 0.9.23
 
 - Add a small App Store screenshot thumbnail for app list previews in Nextcloud.

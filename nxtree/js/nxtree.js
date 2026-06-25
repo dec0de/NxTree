@@ -559,7 +559,7 @@
                 const isTreeFile = isDirectoryFileNode(node);
                 row.classList.toggle('nxtree-directory-file-row', isTreeFile);
                 row.classList.toggle('nxtree-directory-folder-row', isDirectoryTreeLoaded() && !isTreeFile);
-                button.textContent = isTreeFile ? `${directoryFileName(node)}.nxtree` : (node.title || 'Untitled node');
+                button.textContent = isTreeFile ? directoryFileName(node) : (node.title || 'Untitled node');
                 button.classList.toggle('active', String(node.id) === String(selectedNodeId));
                 button.addEventListener('click', () => {
                     if (isTreeFile) {

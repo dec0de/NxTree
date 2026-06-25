@@ -47,6 +47,7 @@
         const statusEl = document.getElementById('nxtree-status');
         const addNodeButton = document.getElementById('nxtree-add-node');
         const deleteNodeButton = document.getElementById('nxtree-delete-node');
+        const loadDirectoryFileButton = document.getElementById('nxtree-load-directory-file');
         const sortAscButton = document.getElementById('nxtree-sort-asc');
         const sortDescButton = document.getElementById('nxtree-sort-desc');
         const expandButton = document.getElementById('nxtree-expand-branch');
@@ -116,6 +117,13 @@
 
         function isDirectoryFileNode(node) {
             return isDirectoryTreeLoaded() && node && node.nodeKind === 'tree_file' && node.linkedTreeId;
+        }
+
+        function updateDirectoryLoadButton() {
+            const node = selectedNode();
+            const canLoad = isDirectoryFileNode(node);
+            loadDirectoryFileButton.hidden = !isDirectoryTreeLoaded();
+            loadDirectoryFileButton.disabled = !canLoad;
         }
 
         function initDivider() {
@@ -561,15 +569,7 @@
                 row.classList.toggle('nxtree-directory-folder-row', isDirectoryTreeLoaded() && !isTreeFile);
                 button.textContent = isTreeFile ? directoryFileName(node) : (node.title || 'Untitled node');
                 button.classList.toggle('active', String(node.id) === String(selectedNodeId));
-                button.addEventListener('click', () => {
-                    if (isTreeFile) {
-                        directoryTargetFolderId = node.parentId || currentTree.rootNodeId;
-                        selectedTreeId = node.linkedTreeId;
-                        loadTree(node.linkedTreeId);
-                        return;
-                    }
-                    selectNode(node.id);
-                });
+                button.addEventListener('click', () => selectNode(node.id));
                 row.appendChild(button);
                 treeEl.appendChild(row);
 
@@ -609,17 +609,19 @@
                 previewEl.innerHTML = '';
                 titleEl.disabled = true;
                 contentEl.disabled = true;
+                updateDirectoryLoadButton();
                 return;
             }
             const isTreeFile = isDirectoryFileNode(node);
             titleEl.disabled = false;
             contentEl.disabled = isTreeFile;
             titleEl.value = isTreeFile ? directoryFileName(node) : (node.title || '');
-            contentEl.value = isTreeFile ? 'Virtual NxTree file. Click it in the tree to load the linked database tree.' : (node.contentMarkdown || '');
+            contentEl.value = isTreeFile ? 'Virtual NxTree file. Use Load to open the linked database tree.' : (node.contentMarkdown || '');
             contentEl.hidden = editorMode !== 'edit';
             previewEl.hidden = editorMode === 'edit';
-            const preview = isTreeFile ? `Virtual NxTree file linked to database tree ${node.linkedTreeId}.` : (node.contentMarkdown || 'This node is stored in the NxTree database. Editing will use revisioned operations in the next milestone.');
+            const preview = isTreeFile ? `Virtual NxTree file linked to database tree ${node.linkedTreeId}. Use Load to open it.` : (node.contentMarkdown || 'This node is stored in the NxTree database. Editing will use revisioned operations in the next milestone.');
             previewEl.innerHTML = renderMarkdownPreview(preview);
+            updateDirectoryLoadButton();
         }
 
         function selectNode(id) {
@@ -1017,6 +1019,19 @@
                 .catch(error => setStatus(error.message));
         }
 
+        function loadSelectedDirectoryFile() {
+            const node = selectedNode();
+            if (!isDirectoryFileNode(node)) {
+                setStatus('Select a file to load');
+                return;
+            }
+            directoryTargetFolderId = node.parentId || currentTree.rootNodeId;
+            previousTreeId = currentTree.id;
+            updateBackButton();
+            selectedTreeId = node.linkedTreeId;
+            loadTree(node.linkedTreeId);
+        }
+
         function loadTrees() {
             return fetch(endpoint('/trees'), { headers: requestHeaders() })
                 .then(response => {
@@ -1217,7 +1232,7 @@
                     setEditorMode('preview');
                     startTreeSync();
                     fileMenu.hidden = true;
-                    setStatus('Loaded NxTree Library. Select a folder as the Save target or click a file to open it.');
+                    setStatus('Loaded NxTree Library. Select a file and click Load to open it, or select a folder as the Save target.');
                 })
                 .catch(error => setStatus(error.message));
         }
@@ -1449,6 +1464,7 @@
         contentEl.addEventListener('input', scheduleSelectedNodeSave);
         addNodeButton.addEventListener('click', addNode);
         deleteNodeButton.addEventListener('click', deleteNode);
+        loadDirectoryFileButton.addEventListener('click', loadSelectedDirectoryFile);
         sortAscButton.addEventListener('click', () => sortChildren('asc'));
         sortDescButton.addEventListener('click', () => sortChildren('desc'));
         expandButton.addEventListener('click', expandSelectedBranch);

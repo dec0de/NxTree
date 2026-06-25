@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.26
+
+- Select virtual library files on click and open them with a separate Load button so Delete and Undo work naturally.
+
 ## 0.9.25
 
 - Hide the `.nxtree` extension throughout virtual library file labels and messages.

@@ -4,7 +4,7 @@
     <name>NxTree</name>
     <summary>Collaborative hierarchical notes for Nextcloud</summary>
     <description>NxTree is a database-first hierarchical notes app for Nextcloud. It is designed for collaborative tree notes with revisioned operations, Markdown node content, and import/export compatibility with portable tree formats.</description>
-    <version>0.9.25</version>
+    <version>0.9.26</version>
     <licence>AGPL-3.0-or-later</licence>
     <author>Theo Linschooten</author>
     <namespace>NxTree</namespace>

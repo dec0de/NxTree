@@ -14,11 +14,12 @@
             <button type="button" id="nxtree-save-tree" title="Save this database tree into the current virtual folder">Save</button>
             <button type="button" id="nxtree-import-files">Import from Files</button>
             <button type="button" id="nxtree-export-files" title="Save the selected branch to Nextcloud Files">Export to Files</button>
-            <small>Load opens _directory01_. Save creates or updates a virtual .nxtree file in the selected directory folder.</small>
+            <small>Load opens _directory01_. Save creates or updates a virtual file in the selected directory folder.</small>
         </div>
         <div class="nxtree-tree-actions" aria-label="Tree actions">
             <button type="button" id="nxtree-add-node" title="New child node">+ Node</button>
             <button type="button" id="nxtree-delete-node">Delete</button>
+            <button type="button" id="nxtree-load-directory-file" title="Load selected virtual file" hidden disabled>Load</button>
             <button type="button" id="nxtree-sort-asc">Sort A-Z</button>
             <button type="button" id="nxtree-sort-desc">Sort Z-A</button>
             <button type="button" id="nxtree-expand-branch" title="Expand selected branch">Expand</button>

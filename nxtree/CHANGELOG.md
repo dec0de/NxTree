@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.25
+
+- Hide the `.nxtree` extension throughout virtual library file labels and messages.
+
 ## 0.9.24
 
 - Hide the `.nxtree` extension from virtual file labels in the directory tree.

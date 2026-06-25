@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.36
+
+- Create a virtual file entry automatically when creating a new tree from the selected directory folder.
+
 ## 0.9.35
 
 - Restore virtual directory folders that were accidentally soft-deleted by the legacy cleanup repair.

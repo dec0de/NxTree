@@ -40,13 +40,13 @@ final class TreeController extends Controller {
      * @NoAdminRequired
      */
     #[NoAdminRequired]
-    public function create(string $title = 'Untitled tree'): JSONResponse {
+    public function create(string $title = 'Untitled tree', int $folderNodeId = 0): JSONResponse {
         if ($this->userId === null) {
             return new JSONResponse(['error' => 'Authentication required'], Http::STATUS_UNAUTHORIZED);
         }
 
         try {
-            $tree = $this->treeService->createTree($this->userId, $title);
+            $tree = $this->treeService->createTree($this->userId, $title, $folderNodeId > 0 ? $folderNodeId : null);
         } catch (InvalidArgumentException $e) {
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         }

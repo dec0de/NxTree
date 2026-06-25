@@ -56,7 +56,7 @@ final class TreeService {
     /**
      * @return array<string, int|string|null>
      */
-    public function createTree(string $userId, string $title): array {
+    public function createTree(string $userId, string $title, ?int $folderNodeId = null): array {
         $title = trim($title);
         if ($title === '') {
             throw new InvalidArgumentException('Tree title is required');
@@ -81,13 +81,35 @@ final class TreeService {
                 'rootNodeId' => $rootNodeId,
             ], $now);
 
+            if ($folderNodeId !== null) {
+                $directoryTreeId = $this->ensureDirectoryTree($userId);
+                $folder = $this->nodeRow($folderNodeId);
+                if ($folder === null || (int)$folder['tree_id'] !== $directoryTreeId || (string)($folder['node_kind'] ?? self::NODE_KIND_NOTE) !== self::NODE_KIND_FOLDER) {
+                    throw new InvalidArgumentException('Choose a directory folder before creating a tree there');
+                }
+                $libraryName = $this->normaliseLibraryName($title);
+                $this->insertChildNode($directoryTreeId, $folderNodeId, count($this->childRows($directoryTreeId, $folderNodeId)), $libraryName, $now, self::NODE_KIND_TREE_FILE, $treeId);
+                $this->updateTreeLibraryFile($treeId, $this->directoryPathForNode($folderNodeId), $libraryName);
+
+                $directory = $this->treeRow($directoryTreeId);
+                if ($directory !== null) {
+                    $directoryRevision = (int)$directory['revision'] + 1;
+                    $this->updateTreeRevision($directoryTreeId, $directoryRevision, $now);
+                    $this->insertOperation($directoryTreeId, $userId, $directoryRevision, 'createTreeInDirectory', [
+                        'treeId' => $treeId,
+                        'folderNodeId' => $folderNodeId,
+                        'libraryName' => $libraryName,
+                    ], $now);
+                }
+            }
+
             $this->db->commit();
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
 
-        return [
+        $createdTree = [
             'id' => $treeId,
             'title' => $title,
             'rootNodeId' => $rootNodeId,
@@ -95,6 +117,12 @@ final class TreeService {
             'createdAt' => $now,
             'updatedAt' => $now,
         ];
+        if ($folderNodeId !== null) {
+            $createdTree['libraryPath'] = $this->directoryPathForNode($folderNodeId);
+            $createdTree['libraryName'] = $this->normaliseLibraryName($title);
+        }
+
+        return $createdTree;
     }
 
     /**

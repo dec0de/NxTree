@@ -1061,8 +1061,17 @@
             if (title === null) {
                 return;
             }
+            const createInDirectory = isDirectoryTreeLoaded();
             const body = new URLSearchParams();
             body.set('title', title);
+            if (createInDirectory) {
+                const folder = selectedNode();
+                if (!folder || isDirectoryFileNode(folder)) {
+                    setStatus('Select a directory folder before creating a tree there');
+                    return;
+                }
+                body.set('folderNodeId', String(folder.id));
+            }
             newTreeButton.disabled = true;
             setStatus('Creating tree...');
             fetch(endpoint('/trees'), { method: 'POST', headers: requestHeaders(), body })
@@ -1076,12 +1085,16 @@
                     trees.unshift(data.tree);
                     selectedTreeId = data.tree.id;
                     renderTreeList();
+                    if (createInDirectory) {
+                        setStatus(`Created ${treeLibraryName(data.tree)} in the selected directory folder.`);
+                        return openTreeLibrary(true);
+                    }
                     return loadTree(data.tree.id);
                 })
                 .catch(error => setStatus(error.message))
                 .finally(() => {
                     newTreeButton.disabled = false;
-                    fileMenu.hidden = true;
+                    fileMenu.hidden = createInDirectory ? false : true;
                 });
         }
 

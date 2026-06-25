@@ -1212,6 +1212,29 @@
             return '/NxTree';
         }
 
+        function ensureCurrentTreeInLibrary() {
+            if (!currentTree || isDirectoryTreeLoaded()) {
+                return Promise.resolve();
+            }
+
+            const body = new URLSearchParams();
+            body.set('libraryName', treeLibraryName(currentTree));
+            if (directoryTargetFolderId !== null) {
+                body.set('folderNodeId', String(directoryTargetFolderId));
+            }
+
+            return fetch(endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/directory'), {
+                method: 'POST',
+                headers: requestHeaders(),
+                body,
+            }).then(response => response.json().then(data => {
+                if (!response.ok) {
+                    throw new Error(data.error || 'Could not add current tree to the directory');
+                }
+                return data;
+            }));
+        }
+
         function openTreeLibrary(showFileMenu = false) {
             if (currentTree && !isDirectoryTreeLoaded()) {
                 previousTreeId = currentTree.id;
@@ -1465,7 +1488,10 @@
                 returnToPreviousTree();
                 return;
             }
-            openTreeLibrary(true);
+            setStatus('Preparing File view...');
+            ensureCurrentTreeInLibrary()
+                .then(() => openTreeLibrary(true))
+                .catch(error => setStatus(error.message));
         });
         newTreeButton.addEventListener('click', createTree);
         saveTreeButton.addEventListener('click', saveTreeToLibrary);

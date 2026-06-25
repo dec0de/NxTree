@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.37
+
+- Ensure the current database tree has a virtual file entry before entering File view.
+
 ## 0.9.36
 
 - Create a virtual file entry automatically when creating a new tree from the selected directory folder.

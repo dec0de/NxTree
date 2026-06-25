@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.27
+
+- Keep virtual file delete and undo consistent by clearing and restoring linked tree library metadata.
+
 ## 0.9.26
 
 - Select virtual library files on click and open them with a separate Load button so Delete and Undo work naturally.

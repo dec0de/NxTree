@@ -501,6 +501,12 @@ final class TreeService {
             $deletedIds = $this->descendantIds($treeId, $nodeId);
             array_unshift($deletedIds, $nodeId);
             foreach ($deletedIds as $id) {
+                $deletedNode = $this->nodeRow($id);
+                if ($deletedNode !== null && (string)($deletedNode['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_TREE_FILE && $deletedNode['linked_tree_id'] !== null) {
+                    $this->clearTreeLibraryFile((int)$deletedNode['linked_tree_id']);
+                }
+            }
+            foreach ($deletedIds as $id) {
                 $this->softDeleteNode($id, $now);
             }
             $this->renumberChildren($treeId, $node['parent_id'] === null ? null : (int)$node['parent_id']);
@@ -667,6 +673,7 @@ final class TreeService {
             foreach ($snapshotNodes as $nodeId => $node) {
                 $this->restoreSnapshotNode($treeId, $nodeId, $node, $now);
             }
+            $this->restoreDirectoryMetadataForSnapshot($snapshotNodes, $rootNodeId);
 
             $newRevision = (int)$tree['revision'] + 1;
             $this->updateTreeRevision($treeId, $newRevision, $now);
@@ -835,6 +842,15 @@ final class TreeService {
             ->executeStatement();
     }
 
+    private function clearTreeLibraryFile(int $treeId): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('nxtree_trees')
+            ->set('library_path', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+            ->set('library_name', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+    }
+
     private function softDeleteNode(int $nodeId, int $now): void {
         $qb = $this->db->getQueryBuilder();
         $qb->update('nxtree_nodes')
@@ -849,7 +865,7 @@ final class TreeService {
     private function restoreSnapshotNode(int $treeId, int $nodeId, array $node, int $now): void {
         $parentId = array_key_exists('parentId', $node) && $node['parentId'] !== null ? (int)$node['parentId'] : null;
         $qb = $this->db->getQueryBuilder();
-        $qb->update('nxtree_nodes')
+        $affected = $qb->update('nxtree_nodes')
             ->set('parent_id', $parentId === null ? $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL) : $qb->createNamedParameter($parentId, IQueryBuilder::PARAM_INT))
             ->set('sort_order', $qb->createNamedParameter((int)($node['sortOrder'] ?? 0), IQueryBuilder::PARAM_INT))
             ->set('title', $qb->createNamedParameter(mb_substr(trim((string)($node['title'] ?? 'Untitled node')) ?: 'Untitled node', 0, 255)))
@@ -862,6 +878,42 @@ final class TreeService {
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT)))
             ->andWhere($qb->expr()->eq('tree_id', $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT)))
             ->executeStatement();
+
+        if ($affected > 0) {
+            return;
+        }
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->insert('nxtree_nodes')
+            ->values([
+                'id' => $qb->createNamedParameter($nodeId, IQueryBuilder::PARAM_INT),
+                'tree_id' => $qb->createNamedParameter($treeId, IQueryBuilder::PARAM_INT),
+                'parent_id' => $parentId === null ? $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL) : $qb->createNamedParameter($parentId, IQueryBuilder::PARAM_INT),
+                'sort_order' => $qb->createNamedParameter((int)($node['sortOrder'] ?? 0), IQueryBuilder::PARAM_INT),
+                'title' => $qb->createNamedParameter(mb_substr(trim((string)($node['title'] ?? 'Untitled node')) ?: 'Untitled node', 0, 255)),
+                'content_markdown' => $qb->createNamedParameter((string)($node['contentMarkdown'] ?? '')),
+                'node_kind' => $qb->createNamedParameter((string)($node['nodeKind'] ?? self::NODE_KIND_NOTE)),
+                'linked_tree_id' => isset($node['linkedTreeId']) && $node['linkedTreeId'] !== null ? $qb->createNamedParameter((int)$node['linkedTreeId'], IQueryBuilder::PARAM_INT) : $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL),
+                'version' => $qb->createNamedParameter((int)($node['version'] ?? 1), IQueryBuilder::PARAM_INT),
+                'created_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
+                'updated_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
+                'deleted_at' => $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL),
+            ])
+            ->executeStatement();
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $snapshotNodes
+     */
+    private function restoreDirectoryMetadataForSnapshot(array $snapshotNodes, int $rootNodeId): void {
+        foreach ($snapshotNodes as $node) {
+            if ((string)($node['nodeKind'] ?? self::NODE_KIND_NOTE) !== self::NODE_KIND_TREE_FILE || !isset($node['linkedTreeId']) || $node['linkedTreeId'] === null) {
+                continue;
+            }
+
+            $parentId = isset($node['parentId']) && $node['parentId'] !== null ? (int)$node['parentId'] : $rootNodeId;
+            $this->updateTreeLibraryFile((int)$node['linkedTreeId'], $this->directoryPathForNode($parentId), $this->normaliseLibraryName((string)($node['title'] ?? 'Untitled tree')));
+        }
     }
 
     private function moveNodeRow(int $nodeId, ?int $parentId, int $sortOrder): void {

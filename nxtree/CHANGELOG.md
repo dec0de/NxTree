@@ -3,6 +3,7 @@
 ## 0.9.44
 
 - Add scoped search and replace for the selected node and its children, with undo support.
+- Preserve File view state after search and replace so virtual files remain selectable for delete and move.
 
 ## 0.9.43
 

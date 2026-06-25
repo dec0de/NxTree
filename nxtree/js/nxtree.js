@@ -572,7 +572,11 @@
                 row.classList.toggle('nxtree-directory-folder-row', isDirectoryTreeLoaded() && !isTreeFile);
                 button.textContent = isTreeFile ? directoryFileName(node) : (node.title || 'Untitled node');
                 button.classList.toggle('active', String(node.id) === String(selectedNodeId));
-                button.addEventListener('click', () => selectNode(node.id));
+                button.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    selectNode(node.id);
+                });
                 row.appendChild(button);
                 treeEl.appendChild(row);
 
@@ -743,7 +747,7 @@
                 });
         }
 
-        function applyTreeResult(data, preferredSelection) {
+        function applyTreeResult(data, preferredSelection, options = {}) {
             currentTree = data.tree;
             remoteChangePending = false;
             if (preferredSelection && findNode(preferredSelection)) {
@@ -755,7 +759,9 @@
             refreshTreeSummary(currentTree);
             renderTree();
             renderSelectedNode();
-            runSearch();
+            if (!options.skipSearch) {
+                runSearch();
+            }
         }
 
         function pushUndoState() {
@@ -1492,6 +1498,9 @@
 
         async function applyReplacement(targetNodes) {
             updateSelectedNodeFromEditor();
+            const wasDirectoryMode = isDirectoryTreeLoaded();
+            const previousTreeBeforeReplace = previousTreeId;
+            const directoryTargetBeforeReplace = directoryTargetFolderId;
             const query = searchInput.value.trim();
             const options = searchOptions();
             const pattern = replacementPattern(query, options);
@@ -1523,7 +1532,18 @@
                     const data = await saveReplacementNode(change);
                     currentTree = data.tree;
                 }
-                applyTreeResult({ tree: currentTree }, selectedNodeId);
+                applyTreeResult({ tree: currentTree }, selectedNodeId, { skipSearch: true });
+                if (wasDirectoryMode && isDirectoryTreeLoaded()) {
+                    directoryTreeId = currentTree.id;
+                    selectedTreeId = currentTree.id;
+                    previousTreeId = previousTreeBeforeReplace;
+                    directoryTargetFolderId = findNode(directoryTargetBeforeReplace) ? directoryTargetBeforeReplace : currentTree.rootNodeId;
+                    renderTreeList();
+                }
+                if (activeSearchResultId !== null && !findNode(activeSearchResultId)) {
+                    activeSearchResultId = null;
+                }
+                runSearch();
                 setStatus(`Replaced ${replacements} occurrence(s)`);
                 searchStatus.textContent = `Replaced ${replacements} occurrence(s) in ${changes.length} node(s). Undo is available.`;
             } catch (error) {

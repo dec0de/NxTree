@@ -49,7 +49,7 @@
                 <label><input id="nxtree-search-content" type="checkbox" checked /> Content</label>
                 <label><input id="nxtree-search-case" type="checkbox" /> Match case</label>
                 <label><input id="nxtree-search-regex" type="checkbox" /> Regex</label>
-                <label><input id="nxtree-search-branch" type="checkbox" /> Search subtree only</label>
+                <label><input id="nxtree-search-branch" type="checkbox" /> Subtree only</label>
             </div>
             <div class="nxtree-search-replace">
                 <input id="nxtree-replace-input" type="text" placeholder="Replace with" />

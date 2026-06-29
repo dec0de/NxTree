@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.48
+
+- Shorten the subtree search option label to keep search options on one line.
+
 ## 0.9.47
 
 - Clarify the search scope option label in the search panel.

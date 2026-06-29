@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.47
+
+- Clarify the search scope option label in the search panel.
+
 ## 0.9.46
 
 - Search and replace the whole tree by default, with an option to limit scope to the current branch.

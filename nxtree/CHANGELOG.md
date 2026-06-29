@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.46
+
+- Search and replace the whole tree by default, with an option to limit scope to the current branch.
+
 ## 0.9.45
 
 - Show the linked tree root-node Markdown when selecting a virtual file in File view.

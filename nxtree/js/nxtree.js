@@ -59,6 +59,7 @@
         const searchContent = document.getElementById('nxtree-search-content');
         const searchCase = document.getElementById('nxtree-search-case');
         const searchRegex = document.getElementById('nxtree-search-regex');
+        const searchBranch = document.getElementById('nxtree-search-branch');
         const replaceInput = document.getElementById('nxtree-replace-input');
         const replaceSelectedButton = document.getElementById('nxtree-replace-selected');
         const replaceAllButton = document.getElementById('nxtree-replace-all');
@@ -1488,7 +1489,12 @@
         }
 
         function selectedSearchRoot() {
-            return selectedNode() || buildNodeTree()[0] || null;
+            const tree = buildNodeTree();
+            return searchBranch.checked ? (selectedNode() || tree[0] || null) : (tree[0] || null);
+        }
+
+        function searchScopeLabel() {
+            return searchBranch.checked ? 'selected node and children' : 'whole tree';
         }
 
         function collectSubtreeNodes(node, nodes = []) {
@@ -1597,7 +1603,7 @@
             searchResults.textContent = '';
             activeSearchResultId = null;
             if (!query || !currentTree || !Array.isArray(currentTree.nodes)) {
-                searchStatus.textContent = 'Scope: selected node and children.';
+                searchStatus.textContent = `Scope: ${searchScopeLabel()}.`;
                 return;
             }
             const options = searchOptions();
@@ -1629,7 +1635,7 @@
                 });
                 searchResults.appendChild(button);
             });
-            searchStatus.textContent = `${searchResults.children.length} matching node(s). Scope: selected node and children.`;
+            searchStatus.textContent = `${searchResults.children.length} matching node(s). Scope: ${searchScopeLabel()}.`;
         }
 
         function textMatches(haystack, query, caseSensitive, regex) {
@@ -1689,7 +1695,7 @@
             exportMtreToFilesPath(filesCurrentPath, filesFilename.value || suggestedExportFilename());
         });
         searchInput.addEventListener('input', runSearch);
-        [searchTitle, searchContent, searchCase, searchRegex].forEach(input => {
+        [searchTitle, searchContent, searchCase, searchRegex, searchBranch].forEach(input => {
             input.addEventListener('change', runSearch);
         });
         replaceSelectedButton.addEventListener('click', () => {

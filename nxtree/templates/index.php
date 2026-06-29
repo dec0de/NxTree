@@ -49,13 +49,14 @@
                 <label><input id="nxtree-search-content" type="checkbox" checked /> Content</label>
                 <label><input id="nxtree-search-case" type="checkbox" /> Match case</label>
                 <label><input id="nxtree-search-regex" type="checkbox" /> Regex</label>
+                <label><input id="nxtree-search-branch" type="checkbox" /> Current branch only</label>
             </div>
             <div class="nxtree-search-replace">
                 <input id="nxtree-replace-input" type="text" placeholder="Replace with" />
                 <button type="button" id="nxtree-replace-selected">Replace selected</button>
-                <button type="button" id="nxtree-replace-all">Replace all below</button>
+                <button type="button" id="nxtree-replace-all">Replace all matches</button>
             </div>
-            <p id="nxtree-search-status" class="nxtree-search-status">Scope: selected node and children.</p>
+            <p id="nxtree-search-status" class="nxtree-search-status">Scope: whole tree.</p>
             <div id="nxtree-search-results" class="nxtree-search-results"></div>
         </div>
     </section>

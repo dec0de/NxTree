@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.50
+
+- Switch portable import/export filenames from `.mtre` to `.mtree` while keeping legacy `.mtre` imports compatible.
+
 ## 0.9.49
 
 - Highlight the currently loaded virtual file in File view with bold text.

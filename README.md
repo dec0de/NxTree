@@ -2,11 +2,11 @@
 
 NxTree is a Nextcloud app for collaborative hierarchical notes.
 
-NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's storage model. MeeTree remains the simple file-based `.mtre` editor. NxTree is designed database-first so multiple users can safely work in the same tree without silent overwrites.
+NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's storage model. MeeTree remains the simple file-based tree editor. NxTree is designed database-first so multiple users can safely work in the same tree without silent overwrites.
 
 ## Status
 
-NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, load and save database trees through a special `_directory01_` NxTree database tree, import `.mtre` files from an in-app Nextcloud Files browser, export the selected branch with a Nextcloud Files destination/filename browser, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, undo recent structure mistakes when safe, and receive polling-based remote updates. The `_directory01_` tree represents virtual folders and `.nxtree` file entries as regular tree nodes; import/export remains the real Nextcloud Files workflow for `.mtre` portability.
+NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, load and save database trees through a special `_directory01_` NxTree database tree, import `.mtree` files from an in-app Nextcloud Files browser, export the selected branch with a Nextcloud Files destination/filename browser, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, undo recent structure mistakes when safe, and receive polling-based remote updates. The `_directory01_` tree represents virtual folders and `.nxtree` file entries as regular tree nodes; import/export remains the real Nextcloud Files workflow for `.mtree` portability.
 
 ## Installation
 
@@ -35,7 +35,7 @@ NxTree should make it safe for multiple people to view and edit the same tree. T
 ## Product Principles
 
 - Database-backed live storage, not one shared JSON file.
-- `.mtre` import/export for portability and backups.
+- `.mtree` import/export for portability and backups.
 - Revisioned operations to prevent silent overwrites.
 - Polling-based synchronization first; real-time push can come later.
 - Node-level Markdown content with preview/edit toggle.
@@ -58,7 +58,7 @@ When users click **Load**, they browse this database-backed directory simulation
 
 The `.nxtree` entries are not real files on disk. They are file-like handles to database trees. This is the small trick that makes NxTree feel file-based without becoming file-bound.
 
-Portable `.mtre` files remain real import/export files through Nextcloud Files. They are used for backups, interchange, and compatibility with MeeTree, but they are not NxTree's live storage format.
+Portable `.mtree` files remain real import/export files through Nextcloud Files. They are used for backups, interchange, and compatibility with MeeTree, but they are not NxTree's live storage format. Legacy `.mtre` files can still be imported.
 
 ## Initial Architecture
 
@@ -126,7 +126,7 @@ This gives NxTree safe multiuser editing before adding more advanced real-time i
 - Release packaging script.
 - Create, list, and open database-backed trees.
 - Render root nodes in a first tree/editor UI shell.
-- Import `.mtre` files into database-backed trees.
+- Import `.mtree` files into database-backed trees.
 - Use a current MeeTree-style full-screen UI shell with resizable divider and connector-line tree rendering.
 - Edit node titles and Markdown content through revisioned database operations.
 
@@ -159,9 +159,9 @@ This gives NxTree safe multiuser editing before adding more advanced real-time i
 
 ### Phase 6: Import/Export
 
-- Import `.mtre` into database-backed trees.
-- Export database trees to `.mtre`.
-- Export selected branches to `.mtre`.
+- Import `.mtree` into database-backed trees.
+- Export database trees to `.mtree`.
+- Export selected branches to `.mtree`.
 - Import/export through Nextcloud Files paths.
 - Load/save database trees through a special `_directory01_` directory tree with virtual folders and linked `.nxtree` file nodes.
 - Reuse MeeTree HJT/CTD codecs where practical.
@@ -188,7 +188,7 @@ NxTree should not reuse:
 - whole-document autosave
 - `activeFile.path`
 - `/MeeTree/state.json`
-- `.mtre` as live storage
+- portable tree files as live storage
 - last-save-wins behavior
 
 ## App Store Notes

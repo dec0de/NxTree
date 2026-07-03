@@ -170,7 +170,7 @@ final class TreeService {
                 'title' => $title,
                 'rootNodeId' => $rootNodeId,
                 'nodeCount' => $nodeCount,
-                'format' => 'mtre',
+                'format' => 'mtree',
             ], $now);
 
             $this->db->commit();
@@ -192,8 +192,8 @@ final class TreeService {
      */
     public function importMtreFromFiles(string $userId, string $path): array {
         $path = $this->normalisePath($path);
-        if (!str_ends_with(strtolower($path), '.mtre')) {
-            throw new InvalidArgumentException('Only .mtre files can be imported from Nextcloud Files');
+        if (!$this->hasPortableTreeExtension($path)) {
+            throw new InvalidArgumentException('Only .mtree and legacy .mtre files can be imported from Nextcloud Files');
         }
 
         $file = $this->getUserFile($userId, $path);
@@ -220,7 +220,7 @@ final class TreeService {
                     'path' => $this->joinPath($path, $node->getName()),
                     'type' => 'folder',
                 ];
-            } elseif ($node instanceof File && str_ends_with(strtolower($node->getName()), '.mtre')) {
+            } elseif ($node instanceof File && $this->hasPortableTreeExtension($node->getName())) {
                 $entries[] = [
                     'name' => $node->getName(),
                     'path' => $this->joinPath($path, $node->getName()),
@@ -908,8 +908,8 @@ final class TreeService {
         }
 
         $folder = $this->getOrCreateUserFolder($userId, self::BACKUP_EXPORT_FOLDER);
-        $base = preg_replace('/\.mtre$/i', '', (string)$export['filename']) ?: 'nxtree';
-        $filename = $this->normaliseFilename('Deleted-' . $base . '-' . date('Y-m-d-His', $now) . '.mtre');
+        $base = preg_replace('/\.(mtree|mtre)$/i', '', (string)$export['filename']) ?: 'nxtree';
+        $filename = $this->normaliseFilename('Deleted-' . $base . '-' . date('Y-m-d-His', $now) . '.mtree');
         $path = $this->uniqueFilePath($folder, self::BACKUP_EXPORT_FOLDER, $filename);
         $file = $folder->newFile(basename($path));
         $file->putContent((string)$export['contents']);
@@ -1266,7 +1266,7 @@ final class TreeService {
             $base = 'nxtree';
         }
 
-        return $base . '.mtre';
+        return $base . '.mtree';
     }
 
     /**
@@ -1324,11 +1324,19 @@ final class TreeService {
     private function normaliseFilename(string $filename): string {
         $filename = basename(str_replace('\\', '/', trim($filename)));
         $filename = preg_replace('/[^A-Za-z0-9._ -]+/', '-', $filename) ?: 'nxtree';
-        if (!str_ends_with(strtolower($filename), '.mtre')) {
-            $filename = preg_replace('/\.(mtre|json|hjt|ctd)$/i', '', $filename) . '.mtre';
+        if (!$this->hasPortableTreeExtension($filename)) {
+            $filename = preg_replace('/\.(mtree|mtre|json|hjt|ctd)$/i', '', $filename) . '.mtree';
+        }
+        if (str_ends_with(strtolower($filename), '.mtre')) {
+            $filename = preg_replace('/\.mtre$/i', '.mtree', $filename) ?? $filename;
         }
 
         return $filename;
+    }
+
+    private function hasPortableTreeExtension(string $filename): bool {
+        $filename = strtolower($filename);
+        return str_ends_with($filename, '.mtree') || str_ends_with($filename, '.mtre');
     }
 
     private function getUserFolder(string $userId): Folder {
@@ -1380,11 +1388,11 @@ final class TreeService {
     }
 
     private function uniqueFilePath(Folder $folder, string $folderPath, string $filename): string {
-        $base = preg_replace('/\.mtre$/i', '', $filename) ?: 'nxtree';
+        $base = preg_replace('/\.(mtree|mtre)$/i', '', $filename) ?: 'nxtree';
         $candidate = $filename;
         $counter = 2;
         while ($folder->nodeExists($candidate)) {
-            $candidate = $base . '-' . $counter . '.mtre';
+            $candidate = $base . '-' . $counter . '.mtree';
             $counter++;
         }
 
@@ -1887,7 +1895,7 @@ final class TreeService {
 
     private function normaliseLibraryName(string $name): string {
         $name = trim(preg_replace('/[\\\/]+/', '-', $name) ?? '');
-        $name = preg_replace('/\.(nxtree|mtre)$/i', '', $name) ?? $name;
+        $name = preg_replace('/\.(nxtree|mtree|mtre)$/i', '', $name) ?? $name;
         $name = trim($name);
         if ($name === '') {
             return '';

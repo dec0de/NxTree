@@ -13,6 +13,7 @@ return [
         ['name' => 'tree#browseFiles', 'url' => '/files/browse', 'verb' => 'GET'],
         ['name' => 'tree#show', 'url' => '/trees/{treeId}', 'verb' => 'GET'],
         ['name' => 'tree#sync', 'url' => '/trees/{treeId}/sync', 'verb' => 'GET'],
+        ['name' => 'tree#exportMtree', 'url' => '/trees/{treeId}/export/mtree', 'verb' => 'GET'],
         ['name' => 'tree#exportMtre', 'url' => '/trees/{treeId}/export/mtre', 'verb' => 'GET'],
         ['name' => 'tree#exportMtreToFiles', 'url' => '/trees/{treeId}/export/files', 'verb' => 'POST'],
         ['name' => 'tree#saveToDirectory', 'url' => '/trees/{treeId}/directory', 'verb' => 'POST'],

@@ -410,11 +410,11 @@
         }
 
         function treeLibraryName(tree) {
-            return String(tree.libraryName || tree.title || 'Untitled tree').replace(/\.(nxtree|mtre)$/i, '').trim() || 'Untitled tree';
+            return String(tree.libraryName || tree.title || 'Untitled tree').replace(/\.(nxtree|mtree|mtre)$/i, '').trim() || 'Untitled tree';
         }
 
         function directoryFileName(node) {
-            const title = String(node.title || '').replace(/\.(nxtree|mtre)$/i, '').trim();
+            const title = String(node.title || '').replace(/\.(nxtree|mtree|mtre)$/i, '').trim();
             if (title !== '' && !['Untitled node', 'Untitled tree'].includes(title)) {
                 return title;
             }
@@ -1230,9 +1230,9 @@
                 return;
             }
             const params = selectedNodeId === null ? '' : '?nodeId=' + encodeURIComponent(selectedNodeId);
-            window.location.href = endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/export/mtre' + params);
+            window.location.href = endpoint('/trees/' + encodeURIComponent(currentTree.id) + '/export/mtree' + params);
             fileMenu.hidden = true;
-            setStatus('Exporting selected branch as .mtre...');
+            setStatus('Exporting selected branch as .mtree...');
         }
 
         function parentPath(path) {
@@ -1348,7 +1348,7 @@
 
         function suggestedExportFilename() {
             const node = selectedNode();
-            return ((node && node.title) || currentTree.title || 'nxtree').replace(/[^A-Za-z0-9._ -]+/g, '-') + '.mtre';
+            return ((node && node.title) || currentTree.title || 'nxtree').replace(/[^A-Za-z0-9._ -]+/g, '-') + '.mtree';
         }
 
         function exportMtreToFilesPath(folderPath, filename) {
@@ -1416,7 +1416,7 @@
                     filesCurrentPath = data.path || '/';
                     filesParentPath = data.parent || null;
                     renderFilesList(Array.isArray(data.entries) ? data.entries : []);
-                    setStatus(filesMode === 'export' ? `Choose export folder: ${filesCurrentPath}` : `Choose .mtre file from ${filesCurrentPath}`);
+                    setStatus(filesMode === 'export' ? `Choose export folder: ${filesCurrentPath}` : `Choose .mtree file from ${filesCurrentPath}`);
                 })
                 .catch(error => setStatus(error.message));
         }
@@ -1429,7 +1429,7 @@
             if (visibleEntries.length === 0) {
                 const empty = document.createElement('p');
                 empty.className = 'nxtree-empty';
-                empty.textContent = filesMode === 'import' ? 'No folders or .mtre files here.' : 'No subfolders here.';
+                empty.textContent = filesMode === 'import' ? 'No folders or .mtree files here.' : 'No subfolders here.';
                 filesList.appendChild(empty);
                 return;
             }

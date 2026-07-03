@@ -80,10 +80,10 @@ final class TreeController extends Controller {
             return new JSONResponse(['error' => 'No import file uploaded'], Http::STATUS_BAD_REQUEST);
         }
 
-        $fileName = isset($file['name']) ? (string)$file['name'] : 'Imported tree.mtre';
+        $fileName = isset($file['name']) ? (string)$file['name'] : 'Imported tree.mtree';
         $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        if ($extension !== 'mtre') {
-            return new JSONResponse(['error' => 'Only .mtre files can be imported right now'], Http::STATUS_BAD_REQUEST);
+        if (!in_array($extension, ['mtree', 'mtre'], true)) {
+            return new JSONResponse(['error' => 'Only .mtree and legacy .mtre files can be imported right now'], Http::STATUS_BAD_REQUEST);
         }
 
         $contents = file_get_contents($file['tmp_name']);
@@ -168,6 +168,16 @@ final class TreeController extends Controller {
         }
 
         return new JSONResponse($sync);
+    }
+
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function exportMtree(int $treeId, int $nodeId = 0): DataDownloadResponse|JSONResponse {
+        return $this->exportMtre($treeId, $nodeId);
     }
 
     /**

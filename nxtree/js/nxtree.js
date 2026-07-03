@@ -571,6 +571,7 @@
                 button.className = 'nxtree-tree-label';
                 const isTreeFile = isDirectoryFileNode(node);
                 row.classList.toggle('nxtree-directory-file-row', isTreeFile);
+                row.classList.toggle('nxtree-directory-current-file-row', isTreeFile && previousTreeId !== null && String(node.linkedTreeId) === String(previousTreeId));
                 row.classList.toggle('nxtree-directory-folder-row', isDirectoryTreeLoaded() && !isTreeFile);
                 button.textContent = isTreeFile ? directoryFileName(node) : (node.title || 'Untitled node');
                 button.classList.toggle('active', String(node.id) === String(selectedNodeId));

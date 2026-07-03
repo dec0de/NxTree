@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.49
+
+- Highlight the currently loaded virtual file in File view with bold text.
+
 ## 0.9.48
 
 - Shorten the subtree search option label to keep search options on one line.

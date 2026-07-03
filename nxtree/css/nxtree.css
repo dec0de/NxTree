@@ -336,6 +336,10 @@
     color: #0969da;
 }
 
+#nxtree-app.nxtree-directory-mode .nxtree-directory-current-file-row .nxtree-tree-label {
+    font-weight: 700;
+}
+
 .nxtree-editor {
     display: flex;
     flex-direction: column;

@@ -3,7 +3,7 @@
 <div id="nxtree-app">
     <aside class="nxtree-sidebar">
         <header class="nxtree-header">
-            <h2>NxTree</h2>
+            <h2>NexTree</h2>
             <button type="button" id="nxtree-file-toggle">File</button>
             <button type="button" id="nxtree-search-toggle">Search</button>
         </header>
@@ -23,15 +23,37 @@
             <button type="button" id="nxtree-collapse-branch" title="Collapse selected branch">Collapse</button>
             <button type="button" id="nxtree-undo" class="nxtree-undo-button" title="Undo last tree structure change">↶ Undo</button>
         </div>
-        <nav id="nxtree-tree" class="nxtree-tree" aria-label="NxTree document tree"></nav>
+        <nav id="nxtree-tree" class="nxtree-tree" aria-label="NexTree document tree"></nav>
     </aside>
     <div id="nxtree-divider" class="nxtree-divider" role="separator" aria-orientation="vertical" aria-label="Resize tree panel"></div>
     <main class="nxtree-editor">
         <div class="nxtree-editor-toolbar">
             <input id="nxtree-node-title" type="text" disabled placeholder="Node title" />
             <button type="button" id="nxtree-edit-mode" class="nxtree-mode-button" aria-pressed="false" title="Switch to edit mode">Edit</button>
+            <button type="button" id="nxtree-editor-settings-toggle" class="nxtree-mode-button" aria-expanded="false" aria-controls="nxtree-editor-settings">Text</button>
             <span id="nxtree-save-state" class="nxtree-save-state">Saved</span>
             <span id="nxtree-revision" class="nxtree-revision"></span>
+        </div>
+        <div id="nxtree-editor-settings" class="nxtree-editor-settings" hidden>
+            <label for="nxtree-editor-font">Font
+                <select id="nxtree-editor-font">
+                    <option value="monospace">Monospace (recommended for ASCII)</option>
+                    <option value="sans-serif">Sans-serif</option>
+                    <option value="serif">Serif</option>
+                </select>
+            </label>
+            <label for="nxtree-editor-size">Size
+                <select id="nxtree-editor-size">
+                    <option value="12px">12 px</option>
+                    <option value="13px">13 px</option>
+                    <option value="14px">14 px</option>
+                    <option value="15px">15 px</option>
+                    <option value="16px">16 px</option>
+                    <option value="18px">18 px</option>
+                    <option value="20px">20 px</option>
+                    <option value="24px">24 px</option>
+                </select>
+            </label>
         </div>
         <textarea id="nxtree-node-content" disabled spellcheck="true" placeholder="Write Markdown content here"></textarea>
         <article id="nxtree-node-preview" class="nxtree-markdown-preview" hidden></article>

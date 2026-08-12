@@ -1,6 +1,6 @@
-# NxTree
+# NexTree
 
-NxTree is a Nextcloud app for collaborative hierarchical notes.
+NexTree is a Nextcloud app for collaborative hierarchical notes.
 
 NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's storage model. MeeTree remains the simple file-based tree editor. NxTree is designed database-first so multiple users can safely work in the same tree without silent overwrites.
 

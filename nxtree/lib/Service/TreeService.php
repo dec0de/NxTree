@@ -18,7 +18,7 @@ final class TreeService {
     private const BACKUP_EXPORT_FOLDER = '/NxTree/Backups';
     private const DELETED_TREE_RETENTION_BATCHES = 5;
     private const DIRECTORY_TREE_TITLE = '_directory01_';
-    private const DIRECTORY_ROOT_TITLE = 'NxTree Library';
+    private const DIRECTORY_ROOT_TITLE = 'NexTree Library';
     private const NODE_KIND_NOTE = 'note';
     private const NODE_KIND_FOLDER = 'folder';
     private const NODE_KIND_TREE_FILE = 'tree_file';
@@ -68,7 +68,7 @@ final class TreeService {
             throw new InvalidArgumentException('Tree title must be 255 characters or fewer');
         }
         if ($this->isReservedLibraryName($title)) {
-            throw new InvalidArgumentException('"_directory01_" is reserved for the NxTree Library');
+            throw new InvalidArgumentException('"_directory01_" is reserved for the NexTree Library');
         }
 
         $now = time();
@@ -288,7 +288,7 @@ final class TreeService {
                 $libraryName = $this->normaliseLibraryName((string)($tree['library_name'] ?? '') ?: $this->treeTitle($treeId));
             }
             if ($this->isReservedLibraryName($libraryName)) {
-                throw new InvalidArgumentException('"_directory01_" is reserved for the NxTree Library');
+                throw new InvalidArgumentException('"_directory01_" is reserved for the NexTree Library');
             }
 
             $directoryTreeId = $this->ensureDirectoryTree($userId);
@@ -448,7 +448,7 @@ final class TreeService {
             $newRevision = $currentRevision + 1;
             if ((string)($node['node_kind'] ?? self::NODE_KIND_NOTE) === self::NODE_KIND_TREE_FILE) {
                 if ($this->isReservedLibraryName($title)) {
-                    throw new InvalidArgumentException('"_directory01_" is reserved for the NxTree Library');
+                    throw new InvalidArgumentException('"_directory01_" is reserved for the NexTree Library');
                 }
             }
             $this->updateNodeRow($nodeId, $title, $contentMarkdown, (int)$node['version'] + 1, $now);

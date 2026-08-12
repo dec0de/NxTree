@@ -2,6 +2,10 @@
     'use strict';
 
     const sidebarWidthStorageKey = 'nxtree.sidebarWidth';
+    const editorFontStorageKey = 'nxtree.editorFont';
+    const editorSizeStorageKey = 'nxtree.editorSize';
+    const editorFonts = new Set(['monospace', 'sans-serif', 'serif']);
+    const editorSizes = new Set(['12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px']);
 
     function endpoint(path) {
         if (window.OC && typeof window.OC.generateUrl === 'function') {
@@ -39,6 +43,10 @@
         const contentEl = document.getElementById('nxtree-node-content');
         const previewEl = document.getElementById('nxtree-node-preview');
         const editModeButton = document.getElementById('nxtree-edit-mode');
+        const editorSettingsToggle = document.getElementById('nxtree-editor-settings-toggle');
+        const editorSettings = document.getElementById('nxtree-editor-settings');
+        const editorFont = document.getElementById('nxtree-editor-font');
+        const editorSize = document.getElementById('nxtree-editor-size');
         const saveStateEl = document.getElementById('nxtree-save-state');
         const revisionEl = document.getElementById('nxtree-revision');
         const statusEl = document.getElementById('nxtree-status');
@@ -103,6 +111,21 @@
 
         function setStatus(message) {
             statusEl.textContent = message;
+        }
+
+        function initEditorSettings() {
+            const storedFont = localStorage.getItem(editorFontStorageKey);
+            const storedSize = localStorage.getItem(editorSizeStorageKey);
+            editorFont.value = editorFonts.has(storedFont) ? storedFont : 'monospace';
+            editorSize.value = editorSizes.has(storedSize) ? storedSize : '15px';
+            applyEditorSettings();
+        }
+
+        function applyEditorSettings() {
+            app.style.setProperty('--nxtree-editor-font', editorFont.value);
+            app.style.setProperty('--nxtree-editor-size', editorSize.value);
+            localStorage.setItem(editorFontStorageKey, editorFont.value);
+            localStorage.setItem(editorSizeStorageKey, editorSize.value);
         }
 
         function setSaveState(message) {
@@ -425,7 +448,7 @@
 
         function treeMeta(tree) {
             if (tree.libraryPath) {
-                return `NxTree database · Revision ${tree.revision || 0}`;
+                return `NexTree database · Revision ${tree.revision || 0}`;
             }
             if (tree.sourceFilePath) {
                 return `Imported from ${tree.sourceFilePath}`;
@@ -433,7 +456,7 @@
             if (tree.lastExportFolderPath) {
                 return `Last exported to ${tree.lastExportFolderPath}`;
             }
-            return `Revision ${tree.revision || 0} · NxTree database`;
+            return `Revision ${tree.revision || 0} · NexTree database`;
         }
 
         function treeTooltip(tree) {
@@ -1294,7 +1317,7 @@
             if (currentTree && !isDirectoryTreeLoaded()) {
                 previousTreeId = currentTree.id;
             }
-            setStatus('Loading NxTree Library...');
+            setStatus('Loading NexTree Library...');
             fetch(endpoint('/directory'), {
                 method: 'POST',
                 headers: requestHeaders(),
@@ -1302,7 +1325,7 @@
             })
                 .then(response => response.json().then(data => {
                     if (!response.ok) {
-                        throw new Error(data.error || 'Could not load NxTree Library');
+                        throw new Error(data.error || 'Could not load NexTree Library');
                     }
                     return data;
                 }))
@@ -1321,7 +1344,7 @@
                     setEditorMode('preview');
                     startTreeSync();
                     fileMenu.hidden = !showFileMenu;
-                    setStatus('Loaded NxTree Library. Select a file and click Load to open it, or select a folder for new trees.');
+                    setStatus('Loaded NexTree Library. Select a file and click Load to open it, or select a folder for new trees.');
                 })
                 .catch(error => setStatus(error.message));
         }
@@ -1664,8 +1687,15 @@
         importFilesButton.addEventListener('click', importTreeFromFiles);
         exportFilesButton.addEventListener('click', exportMtreToFiles);
         editModeButton.addEventListener('click', () => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit'));
+        editorSettingsToggle.addEventListener('click', () => {
+            editorSettings.hidden = !editorSettings.hidden;
+            editorSettingsToggle.setAttribute('aria-expanded', editorSettings.hidden ? 'false' : 'true');
+        });
+        editorFont.addEventListener('change', applyEditorSettings);
+        editorSize.addEventListener('change', applyEditorSettings);
         titleEl.addEventListener('input', scheduleSelectedNodeSave);
         contentEl.addEventListener('input', scheduleSelectedNodeSave);
+        initEditorSettings();
         addNodeButton.addEventListener('click', addNode);
         deleteNodeButton.addEventListener('click', deleteNode);
         loadDirectoryFileButton.addEventListener('click', loadSelectedDirectoryFile);

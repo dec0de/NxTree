@@ -95,6 +95,32 @@
     font: inherit;
 }
 
+.nxtree-editor-settings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    align-items: center;
+    padding: 0 12px 10px;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-maxcontrast);
+    font-size: 13px;
+}
+
+.nxtree-editor-settings[hidden] {
+    display: none;
+}
+
+.nxtree-editor-settings label {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.nxtree-editor-settings select {
+    max-width: 250px;
+    min-height: 30px;
+}
+
 .nxtree-header button:hover,
 .nxtree-tree-actions button:hover,
 .nxtree-file-actions button:hover,
@@ -381,18 +407,19 @@
     resize: none;
     background: var(--color-main-background);
     color: var(--color-main-text);
-    font: inherit;
+    font-family: var(--nxtree-editor-font, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    font-size: var(--nxtree-editor-size, 15px);
     line-height: 1.6;
 }
 
 #nxtree-node-content {
-    font: 15px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    line-height: 1.55;
 }
 
 .nxtree-markdown-preview {
     overflow: auto;
     color: var(--color-main-text, var(--color-text-maxcontrast));
-    font: 15px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    line-height: 1.55;
     tab-size: 4;
 }
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.51
+
+- Rename the visible app branding from NxTree to NexTree while keeping the `nxtree` app ID and existing data paths compatible.
+- Add per-browser editor font and text-size preferences, with monospace remaining the default for ASCII drawings and tables.
+
 ## 0.9.50
 
 - Switch portable import/export filenames from `.mtre` to `.mtree` while keeping legacy `.mtre` imports compatible.

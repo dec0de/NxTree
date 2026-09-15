@@ -1,12 +1,12 @@
 # NexTree
 
-NexTree is a Nextcloud app for collaborative hierarchical notes.
+NexTree is a Nextcloud app for collaborative hierarchical notes where you can use Markup language to format your information.
 
-NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's storage model. MeeTree remains the simple file-based tree editor. NxTree is designed database-first so multiple users can safely work in the same tree without silent overwrites.
+NxTree starts from lessons learned in MeeTree, but it is not a fork of MeeTree's storage model. MeeTree remains the simple file-based tree editor whilst NexTree is designed database-first so multiple users can safely work in the same tree without silent overwrites. 
 
 ## Status
 
-NxTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, load and save database trees through a special `_directory01_` NxTree database tree, import `.mtree` files from an in-app Nextcloud Files browser, export the selected branch with a Nextcloud Files destination/filename browser, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, undo recent structure mistakes when safe, and receive polling-based remote updates. The `_directory01_` tree represents virtual folders and `.nxtree` file entries as regular tree nodes; import/export remains the real Nextcloud Files workflow for `.mtree` portability.
+NexTree currently provides a runnable database-backed app version with a current MeeTree-style UI shell. You can enable the app, create database-backed trees, load and save database trees through a special `_directory01_` NxTree database tree, import `.mtree` files from an in-app Nextcloud Files browser, export the selected branch with a Nextcloud Files destination/filename browser, view stored nodes with tree connector lines and branch expand/collapse, edit node titles and MeeTree-compatible Markdown content, change tree structure with add/delete/sort/drag-drop operations, undo recent structure mistakes when safe, and receive polling-based remote updates. The `_directory01_` tree represents virtual folders and `.nxtree` file entries as regular tree nodes; import/export remains the real Nextcloud Files workflow for `.mtree` portability.
 
 ## Installation
 

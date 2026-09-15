@@ -55,22 +55,56 @@
     const renderer = createRenderer();
 
     function renderWithPreservedBlankLines(markdown) {
-        const parts = String(markdown || '').replace(/\r\n?/g, '\n').split(/(\n[ \t]*\n(?:[ \t]*\n)*)/);
         let html = '';
+        let currentLines = [];
+        let blankLines = 0;
+        let fence = null;
 
-        for (const part of parts) {
-            if (!part) {
-                continue;
+        function renderCurrentLines() {
+            if (currentLines.length > 0) {
+                html += renderer.render(currentLines.join('\n'));
+                currentLines = [];
             }
-            if (/^\n[ \t]*\n/.test(part)) {
-                const blankLines = part.split('\n').length - 2;
-                for (let i = 1; i < blankLines; i++) {
+        }
+
+        function renderBlankLines() {
+            if (blankLines > 1) {
+                for (let index = 1; index < blankLines; index++) {
                     html += '<div class="tree-markdown-spacer" aria-hidden="true"></div>';
                 }
+            }
+            blankLines = 0;
+        }
+
+        function updateFence(line) {
+            const match = line.match(/^ {0,3}(`{3,}|~{3,})/);
+            if (!match) {
+                return;
+            }
+
+            const marker = match[1][0];
+            const length = match[1].length;
+            if (fence === null) {
+                fence = { marker, length };
+            } else if (fence.marker === marker && length >= fence.length) {
+                fence = null;
+            }
+        }
+
+        const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n');
+        for (const line of lines) {
+            if (fence === null && /^[ \t]*$/.test(line)) {
+                blankLines++;
                 continue;
             }
-            html += renderer.render(part);
+
+            renderBlankLines();
+            currentLines.push(line);
+            updateFence(line);
         }
+
+        renderBlankLines();
+        renderCurrentLines();
 
         return html;
     }

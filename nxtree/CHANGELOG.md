@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.52
+
+- Preserve blank lines inside fenced Markdown code blocks so complete code examples remain a single preview block.
+
 ## 0.9.51
 
 - Rename the visible app branding from NxTree to NexTree while keeping the `nxtree` app ID and existing data paths compatible.

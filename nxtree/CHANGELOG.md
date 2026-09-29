@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.56
+
+- Move the linked-file action into the File menu and label it Load Tree.
+
 ## 0.9.55
 
 - Fix preview blank-line placement so empty lines remain between rendered Markdown sections.

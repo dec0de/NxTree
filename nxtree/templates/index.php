@@ -8,6 +8,7 @@
             <button type="button" id="nxtree-search-toggle">Search</button>
         </header>
         <div id="nxtree-file-menu" class="nxtree-file-actions" hidden>
+            <button type="button" id="nxtree-load-directory-file" title="Load the selected NexTree file" hidden disabled>Load Tree</button>
             <button type="button" id="nxtree-new-tree">Create New Tree</button>
             <button type="button" id="nxtree-import-files">Import from Files</button>
             <button type="button" id="nxtree-export-files" title="Save the selected branch to Nextcloud Files">Export to Files</button>
@@ -16,7 +17,6 @@
         <div class="nxtree-tree-actions" aria-label="Tree actions">
             <button type="button" id="nxtree-add-node" title="New child node">+ Node</button>
             <button type="button" id="nxtree-delete-node">Delete</button>
-            <button type="button" id="nxtree-load-directory-file" title="Load selected virtual file" hidden disabled>Load</button>
             <button type="button" id="nxtree-sort-asc">Sort A-Z</button>
             <button type="button" id="nxtree-sort-desc">Sort Z-A</button>
             <button type="button" id="nxtree-expand-branch" title="Expand selected branch">Expand</button>

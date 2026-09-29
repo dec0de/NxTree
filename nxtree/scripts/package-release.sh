@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 set -eu
+# macOS tar otherwise adds AppleDouble ._ files, including a second archive root.
+export COPYFILE_DISABLE=1
 
 APP_ID="nxtree"
 VERSION="$(grep -m1 '<version>' "${APP_ID}/appinfo/info.xml" | sed -E 's/.*<version>([^<]+)<\/version>.*/\1/')"
@@ -13,6 +15,8 @@ mkdir -p "${BUILD_DIR}/${APP_ID}"
 tar \
   --exclude='.git' \
   --exclude='.DS_Store' \
+  --exclude='._*' \
+  --exclude='.AppleDouble' \
   --exclude='build' \
   --exclude='*.key' \
   --exclude='*.csr' \
@@ -21,6 +25,6 @@ tar \
 
 cp README.md "${BUILD_DIR}/${APP_ID}/README.md"
 
-tar -czf "${ARCHIVE}" -C "${BUILD_DIR}" "${APP_ID}"
+tar --exclude='._*' --exclude='.AppleDouble' -czf "${ARCHIVE}" -C "${BUILD_DIR}" "${APP_ID}"
 
 printf '%s\n' "Created ${ARCHIVE}"

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.55
+
+- Fix preview blank-line placement so empty lines remain between rendered Markdown sections.
+
 ## 0.9.54
 
 - Remove the practical upper limit on supported Nextcloud versions while retaining the required metadata field.

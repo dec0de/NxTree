@@ -68,6 +68,10 @@
         }
 
         function renderBlankLines() {
+            if (blankLines === 0) {
+                return;
+            }
+            renderCurrentLines();
             if (blankLines > 1) {
                 for (let index = 1; index < blankLines; index++) {
                     html += '<div class="tree-markdown-spacer" aria-hidden="true"></div>';

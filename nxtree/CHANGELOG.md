@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.57
+
+- Scroll search results into view and mark the selected node in the tree.
+
 ## 0.9.56
 
 - Move the linked-file action into the File menu and label it Load Tree.

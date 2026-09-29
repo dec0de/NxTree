@@ -693,7 +693,7 @@
                 });
         }
 
-        function selectNode(id) {
+        function selectNode(id, scrollIntoView = false) {
             selectedNodeId = id;
             const node = selectedNode();
             if (isDirectoryTreeLoaded() && node && !isDirectoryFileNode(node)) {
@@ -701,6 +701,18 @@
             }
             renderTree();
             renderSelectedNode();
+            if (scrollIntoView) {
+                window.requestAnimationFrame(() => {
+                    const row = Array.from(treeEl.querySelectorAll('.nxtree-tree-row')).find(item => String(item.dataset.nodeId) === String(id));
+                    if (row) {
+                        row.scrollIntoView({ block: 'nearest' });
+                    }
+                    const label = row && row.querySelector('.nxtree-tree-label');
+                    if (label) {
+                        label.focus({ preventScroll: true });
+                    }
+                });
+            }
         }
 
         function setEditorMode(mode) {
@@ -1654,7 +1666,7 @@
                         collapsedIds.delete(String(current.parentId));
                         current = findNode(current.parentId);
                     }
-                    selectNode(node.id);
+                    selectNode(node.id, true);
                     searchPanel.hidden = true;
                 });
                 searchResults.appendChild(button);
